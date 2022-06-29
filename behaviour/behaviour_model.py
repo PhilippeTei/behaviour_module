@@ -325,25 +325,12 @@ class BehaviourModel(sc.prettyobj):
 
         return pars
 
-    def generate(self):
+    def generate_households(self, pars, 
+        n_nonltcf, ltcf_adjusted_age_dist, ages_left_to_assign, facilities):
+
         """
-        Actually generate the network.
-
-        Returns:
-            network (dict): A dictionary of the full population with ages, connections, and other attributes.
+        TODO: What's with the facilities?
         """
-        log.debug('generate()')
-
-        pars = self.load_pars_and_data()
-        # Generate an age count for the population --- this will get passed around to methods generating the different layers where people live: long term care facilities, households, agricultural living quarters, other group living arrangements
-        age_count = sphh.generate_age_count_multinomial(pars.n, pars.expected_age_dist_values)
-
-        # Ages left to assign to a residence
-        ages_left_to_assign = sc.dcp(age_count)
-
-        # Generate LTCFs and remove some people from the age count of people left to place in a resident by age
-        n_nonltcf, ltcf_adjusted_age_dist, ltcf_adjusted_age_dist_values, ages_left_to_assign, facilities = spltcf.generate_ltcfs(pars.n, pars.with_facilities, pars.loc_pars, pars.expected_age_dist, ages_left_to_assign)
-
         # Generate households
         household_size_dist = spdata.get_household_size_distr(**pars.loc_pars)
         hh_sizes = sphh.generate_household_size_count_from_fixed_pop_size(n_nonltcf, household_size_dist)
@@ -366,12 +353,36 @@ class BehaviourModel(sc.prettyobj):
 
         facilities_by_uid_lists = homes_by_uids[0:len(facilities)]
 
+        return age_by_uid, homes_by_uids, facilities_by_uid_lists, homes
+
+    def get_valid_workers(self, pars, age_by_uid, student_uid_lists, facilities_by_uid_lists):
+        # Get employment rates
+        employment_rates = spdata.get_employment_rates(**pars.loc_pars)
+
+        # Find people who can be workers (removing everyone who is currently a student)
+        uids_by_age = spb.get_ids_by_age(age_by_uid)  # Make a dictionary listing out uids of people by their age
+        potential_worker_uids, potential_worker_uids_by_age, potential_worker_ages_left_count = spw.get_uids_potential_workers(student_uid_lists,
+                                                                                                                               employment_rates,
+                                                                                                                               age_by_uid)
+        workers_by_age_to_assign_count = spw.get_workers_by_age_to_assign(employment_rates, potential_worker_ages_left_count, uids_by_age)
+
+        # Removing facilities residents from potential workers
+        potential_worker_uids, potential_worker_uids_by_age, workers_by_age_to_assign_count = spltcf.remove_ltcf_residents_from_potential_workers(facilities_by_uid_lists,
+                                                                                                                                                  potential_worker_uids,
+                                                                                                                                                  potential_worker_uids_by_age,
+                                                                                                                                                  workers_by_age_to_assign_count,
+                                                                                                                                                  age_by_uid)
+        return employment_rates, workers_by_age_to_assign_count, potential_worker_uids, potential_worker_uids_by_age, potential_worker_ages_left_count
+
+    def generate_schools(self, pars, n_nonltcf, age_by_uid, homes_by_uids):
+
         # Generate school sizes
         school_sizes_dist_by_brackets = spdata.get_school_size_distr_by_brackets(**pars.loc_pars)  # without school type
         school_size_brackets = spdata.get_school_size_brackets(**pars.loc_pars)  # for right now the size distribution for all school types will use the same brackets or bins
 
         # Figure out who's going to school as a student with enrollment rates (gets called inside sp.get_uids_in_school)
-        uids_in_school, uids_in_school_by_age, ages_in_school_count = spsch.get_uids_in_school(pars.datadir, n_nonltcf, pars.location, pars.state_location, pars.country_location, age_by_uid, homes_by_uids, use_default=pars.use_default)  # this will call in school enrollment rates
+        uids_in_school, uids_in_school_by_age, ages_in_school_count = spsch.get_uids_in_school(pars.datadir, n_nonltcf, pars.location, 
+                pars.state_location, pars.country_location, age_by_uid, homes_by_uids, use_default=pars.use_default)  # this will call in school enrollment rates
 
         if pars.with_school_types:
             school_size_distr_by_type = spdata.get_school_size_distr_by_type(**pars.loc_pars)
@@ -403,24 +414,11 @@ class BehaviourModel(sc.prettyobj):
                                                                                                pars.contact_matrices)
 
             school_type_by_age = None
+        return student_uid_lists, student_age_lists, school_type_by_age, school_types
 
-        # Get employment rates
-        employment_rates = spdata.get_employment_rates(**pars.loc_pars)
-
-        # Find people who can be workers (removing everyone who is currently a student)
-        uids_by_age = spb.get_ids_by_age(age_by_uid)  # Make a dictionary listing out uids of people by their age
-        potential_worker_uids, potential_worker_uids_by_age, potential_worker_ages_left_count = spw.get_uids_potential_workers(student_uid_lists,
-                                                                                                                               employment_rates,
-                                                                                                                               age_by_uid)
-        workers_by_age_to_assign_count = spw.get_workers_by_age_to_assign(employment_rates, potential_worker_ages_left_count, uids_by_age)
-
-        # Removing facilities residents from potential workers
-        potential_worker_uids, potential_worker_uids_by_age, workers_by_age_to_assign_count = spltcf.remove_ltcf_residents_from_potential_workers(facilities_by_uid_lists,
-                                                                                                                                                  potential_worker_uids,
-                                                                                                                                                  potential_worker_uids_by_age,
-                                                                                                                                                  workers_by_age_to_assign_count,
-                                                                                                                                                  age_by_uid)
-
+    def distribute_workers(self, pars, student_age_lists, student_uid_lists, employment_rates, 
+        workers_by_age_to_assign_count, potential_worker_uids, potential_worker_uids_by_age, potential_worker_ages_left_count, facilities, facilities_by_uid_lists, age_by_uid):
+            
         # Assign teachers and update school lists
         teacher_age_lists, teacher_uid_lists, potential_worker_uids, potential_worker_uids_by_age, workers_by_age_to_assign_count = spsch.assign_teachers_to_schools(student_age_lists,
                                                                                                                                                                      student_uid_lists,
@@ -477,6 +475,71 @@ class BehaviourModel(sc.prettyobj):
                                                                                                                                                                    pars.cm_age_by_brackets,
                                                                                                                                                                    pars.contact_matrices)
 
+        return teacher_uid_lists, non_teaching_staff_uid_lists, workplace_uid_lists, facilities_staff_uid_lists
+
+    def consolidate_structures(self, homes_by_uids, workplace_uid_lists, student_uid_lists, teacher_uid_lists, 
+        non_teaching_staff_uid_lists, school_types, facilities_by_uid_lists, facilities_staff_uid_lists):
+
+        """
+        For each structural layer, creates a dictionary of those structures. Ex: schools: {1: {students: ...}}
+        The key workhorse is set_layer_classes(). 
+        """
+        school_mixing_types = [self.schools_in_groups[ns]['school_mixing_type'] for ns in range(len(self.schools_in_groups))]
+
+        # temporarily store some information
+        self.homes_by_uids = homes_by_uids
+        self.workplace_uid_lists = workplace_uid_lists
+        self.student_uid_lists = student_uid_lists
+        self.teacher_uid_lists = teacher_uid_lists
+        self.non_teaching_staff_uid_lists = non_teaching_staff_uid_lists
+        self.school_types = school_types
+        self.school_mixing_types = school_mixing_types
+        if self.ltcf_pars.with_facilities:
+            self.facilities_by_uid_lists = facilities_by_uid_lists
+            self.facilities_staff_uid_lists = facilities_staff_uid_lists
+
+            sum_ltcf_res = sum([len(f) for f in self.facilities_by_uid_lists])
+            if sum_ltcf_res == 0:
+                log.warning(f"Heads up: Population size and long term care facility use rates were too low, no facilities were created for this population. If you wish to include people living in this type of layer, consider using a larger population size or checking your data on long term care facility use rates. Changing pop.with_facilities to False.")
+                self.layers.remove('LTCF')
+                self.ltcf_pars.with_facilities = False
+
+        self.set_layer_classes()
+        self.clean_up_layer_info()
+
+    def generate(self):
+        """
+        Actually generate the network.
+
+        Returns:
+            network (dict): A dictionary of the full population with ages, connections, and other attributes.
+        """
+        log.debug('generate()')
+
+        pars = self.load_pars_and_data()
+
+        # Generate an age count for the population --- this will get passed around to methods generating the different layers where people live: long term care facilities, households, agricultural living quarters, other group living arrangements
+        age_count = sphh.generate_age_count_multinomial(pars.n, pars.expected_age_dist_values)
+
+        # Ages left to assign to a residence
+        ages_left_to_assign = sc.dcp(age_count)
+
+        # Generate LTCFs and remove some people from the age count of people left to place in a resident by age
+        n_nonltcf, ltcf_adjusted_age_dist, ltcf_adjusted_age_dist_values, ages_left_to_assign, facilities = spltcf.generate_ltcfs(pars.n, pars.with_facilities, pars.loc_pars, pars.expected_age_dist, ages_left_to_assign)
+
+        # Generate Homes and place people into them. 
+        age_by_uid, homes_by_uids, facilities_by_uid_lists, homes = self.generate_households(pars, n_nonltcf, ltcf_adjusted_age_dist, ages_left_to_assign, facilities)
+        
+        # Generate Schools and put students into them. (Put teachers in later)
+        student_uid_lists, student_age_lists, school_type_by_age, school_types = self.generate_schools(pars, n_nonltcf, age_by_uid, homes_by_uids)
+
+        # Get pool of workers
+        employment_rates, workers_by_age_to_assign_count, potential_worker_uids, potential_worker_uids_by_age, potential_worker_ages_left_count = self.get_valid_workers(pars, age_by_uid, student_uid_lists, facilities_by_uid_lists)
+
+        # Distribute them to your layers. Staff the LTCF's and schools, divvy the rest into workplaces.
+        teacher_uid_lists, non_teaching_staff_uid_lists, workplace_uid_lists, facilities_staff_uid_lists = self.distribute_workers(pars, student_age_lists, student_uid_lists, employment_rates, workers_by_age_to_assign_count, 
+            potential_worker_uids, potential_worker_uids_by_age, potential_worker_ages_left_count, facilities, facilities_by_uid_lists, age_by_uid)
+
         # remove facilities from homes --- have already assigned each person a uid
         homes_by_uids = homes_by_uids[len(facilities_by_uid_lists):]
         homes = homes[len(facilities_by_uid_lists):]
@@ -508,28 +571,9 @@ class BehaviourModel(sc.prettyobj):
             for layerkey in population[key]['contacts'].keys():
                 population[key]['contacts'][layerkey] = list(population[key]['contacts'][layerkey])
 
-        school_mixing_types = [self.schools_in_groups[ns]['school_mixing_type'] for ns in range(len(self.schools_in_groups))]
-
-        # temporarily store some information
-        self.homes_by_uids = homes_by_uids
-        self.workplace_uid_lists = workplace_uid_lists
-        self.student_uid_lists = student_uid_lists
-        self.teacher_uid_lists = teacher_uid_lists
-        self.non_teaching_staff_uid_lists = non_teaching_staff_uid_lists
-        self.school_types = school_types
-        self.school_mixing_types = school_mixing_types
-        if self.ltcf_pars.with_facilities:
-            self.facilities_by_uid_lists = facilities_by_uid_lists
-            self.facilities_staff_uid_lists = facilities_staff_uid_lists
-
-            sum_ltcf_res = sum([len(f) for f in self.facilities_by_uid_lists])
-            if sum_ltcf_res == 0:
-                log.warning(f"Heads up: Population size and long term care facility use rates were too low, no facilities were created for this population. If you wish to include people living in this type of layer, consider using a larger population size or checking your data on long term care facility use rates. Changing pop.with_facilities to False.")
-                self.layers.remove('LTCF')
-                self.ltcf_pars.with_facilities = False
-
-        self.set_layer_classes()
-        self.clean_up_layer_info()
+        # Cannot move above contact generation because of schools_in_groups. 
+        self.consolidate_structures(homes_by_uids, workplace_uid_lists, student_uid_lists, teacher_uid_lists, 
+            non_teaching_staff_uid_lists, school_types, facilities_by_uid_lists, facilities_staff_uid_lists)
 
         return population
 
