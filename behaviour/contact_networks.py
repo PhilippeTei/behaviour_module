@@ -12,41 +12,25 @@ from .config import logger as log, checkmem
 
 
 def make_contacts(pop,
-                  age_by_uid,
-                  homes_by_uids,
-                  students_by_uid_lists=None,
-                  teachers_by_uid_lists=None,
-                  non_teaching_staff_uid_lists=None,
-                  workplace_by_uid_lists=None,
-                  facilities_by_uid_lists=None,
-                  facilities_staff_uid_lists=None,
-                  use_two_group_reduction=False,
-                  average_LTCF_degree=20,
-                  with_school_types=False,
-                  school_mixing_type='random',
-                  average_class_size=20,
-                  inter_grade_mixing=0.1,
-                  average_student_teacher_ratio=20,
-                  average_teacher_teacher_degree=3,
-                  average_student_all_staff_ratio=15,
-                  average_additional_staff_degree=20,
-                  school_type_by_age=None,
-                  workplaces_by_industry_codes=None,
-                  max_contacts=None):
+                  structs,
+                  pars):
     """
     From microstructure objects (dictionary mapping ID to age, lists of lists in different settings, etc.), create a dictionary of individuals.
     Each key is the ID of an individual which maps to a dictionary for that individual with attributes such as their age, household ID (hhid),
     school ID (scid), workplace ID (wpid), workplace industry code (wpindcode) if available, and contacts in different layers.
 
     Args:
+    structs is a Sciris objdict, which contains the following structural information:
         age_by_uid     (dict)                             : dictionary mapping id to age for all individuals in the population
         homes_by_uids (list)                              : A list of lists where each sublist is a household and the IDs of the household members.
         schools_by_uids (list)                            : A list of lists, where each sublist represents a school and the ids of the students and teachers within it
-        teachers_by_uids (list)                           : A list of lists, where each sublist represents a school and the ids of the teachers within it
-        workplaces_by_uids (list)                         : A list of lists, where each sublist represents a workplace and the ids of the workers within it
-        facilities_by_uids (list)                         : A list of lists, where each sublist represents a skilled nursing or long term care facility and the ids of the residents living within it
+        teacher_uids (list)                           : A list of lists, where each sublist represents a school and the ids of the teachers within it
+        workplace_uids (list)                         : A list of lists, where each sublist represents a workplace and the ids of the workers within it
+        facilities_uids (list)                         : A list of lists, where each sublist represents a skilled nursing or long term care facility and the ids of the residents living within it
         facilities_staff_uids (list)                      : A list of lists, where each sublist represents a skilled nursing or long term care facility and the ids of the staff working within it
         non_teaching_staff_uids (list)                    : None or a list of lists, where each sublist represents a school and the ids of the non teaching staff within it
+        workplaces_by_industry_codes (np.ndarray or None) : array with workplace industry code for each workplace
+    pars is a Sciris objdict, which specifies the following parameters:
         use_two_group_reduction (bool)                    : If True, create long term care facilities with reduced contacts across both groups
         average_LTCF_degree (int)                         : default average degree in long term care facilities
         with_school_types (bool)                          : If True, creates explicit school types.
@@ -58,7 +42,6 @@ def make_contacts(pop,
         average_student_all_staff_ratio (float)           : The average number of students per staff members at school (including both teachers and non teachers).
         average_additional_staff_degree (float)           : The average number of contacts per additional non teaching staff in schools.
         school_type_by_age (dict)                         : A dictionary of probabilities for the school type likely for each age.
-        workplaces_by_industry_codes (np.ndarray or None) : array with workplace industry code for each workplace
         trimmed_size_dic (dict)                           : If supplied, trim contacts on creation rather than post hoc.
 
     Returns:
@@ -85,34 +68,26 @@ def make_contacts(pop,
     age_grade_mapping[3] = 0
     age_grade_mapping[4] = 0
 
-    # what are the school types by age
-    school_type_by_age = sc.mergedicts(spdata.get_default_school_types_by_age_single(), school_type_by_age)
-    school_types = list(set(school_type_by_age.values()))  # get the location specific school types whatever they may be
+    school_mixing_type_dic = structs.school_mixing_types
 
-    # check school mixing type
-    if isinstance(school_mixing_type, str):
-        school_mixing_type_dic = dict.fromkeys(school_types, school_mixing_type)
-    elif isinstance(school_mixing_type, dict):
-        school_mixing_type_dic = sc.dcp(school_mixing_type)
-        school_mixing_type_dic = sc.mergedicts(dict.fromkeys(school_types, 'random'), school_mixing_type_dic)  # if the dictionary given doesn't specify the mixing type for an expected school type, set the mixing type for that school type to random by default
-
+    # based on school mixing type, set some parameters.
     age_and_class_clustered_flag = False
     for school_type in school_mixing_type_dic:
         if school_mixing_type_dic[school_type] == 'age_and_class_clustered':
-            age_and_class_clustered_flag = True
+            pars.age_and_class_clustered_flag = True
 
-    if not isinstance(average_class_size, dict):
-        average_class_size_by_mixing_type = dict.fromkeys(set(school_mixing_type_dic.values()), average_class_size)
+    if not isinstance(pars.average_class_size, dict):
+        average_class_size_by_mixing_type = dict.fromkeys(set(school_mixing_type_dic.values()), pars.average_class_size)
 
     else:
-        average_class_size_by_mixing_type = sc.dcp(average_class_size)
+        average_class_size_by_mixing_type = sc.dcp(pars.average_class_size)
         average_class_size_by_mixing_type = sc.mergedicts(dict.fromkeys(set(school_mixing_type_dic.values())), average_class_size_by_mixing_type)
 
     if age_and_class_clustered_flag:
-        if average_class_size < average_student_teacher_ratio:
-            actual_classroom_size = max(average_class_size, average_student_teacher_ratio)
+        if pars.average_class_size < pars.average_student_teacher_ratio:
+            actual_classroom_size = max(pars.average_class_size, pars.average_student_teacher_ratio)
             average_class_size_by_mixing_type['age_and_class_clustered'] = actual_classroom_size
-            warning_msg = f"average_class_size: {average_class_size} < average_student_teacher_ratio: {average_student_teacher_ratio}. \n In schools with mixing type 'age_and_class_clustered', synthpops will use the larger of the two to define the classroom sizes."
+            warning_msg = f"average_class_size: {pars.average_class_size} < average_student_teacher_ratio: {pars.average_student_teacher_ratio}. \n In schools with mixing type 'age_and_class_clustered', synthpops will use the larger of the two to define the classroom sizes."
             log.warning(warning_msg)
 
     if len(list(average_class_size_by_mixing_type.keys())) > 1:
@@ -120,19 +95,19 @@ def make_contacts(pop,
     else:
         pop.average_class_size = list(average_class_size_by_mixing_type.values())[0]
 
-    uids = list(age_by_uid.keys())
+    uids = list(structs.age_by_uid.keys())
 
     popdict = {}
     # also need to return schools as well and not just school contacts
     schools = {}
 
     # Handle trimming
-    do_trim = max_contacts is not None
-    max_contacts = sc.mergedicts({'W': 20}, max_contacts)
+    do_trim = pars.max_contacts is not None
+    max_contacts = sc.mergedicts({'W': 20}, pars.max_contacts)
     trim_keys = max_contacts.keys()
 
     # Handle LTCF
-    use_ltcf = facilities_by_uid_lists is not None
+    use_ltcf = structs.facilities_uid_lists is not None
     if use_ltcf:
         layer_keys = ['H', 'S', 'W', 'C', 'LTCF']
     else:
@@ -141,11 +116,11 @@ def make_contacts(pop,
     log.debug('  starting...' + checkmem())
 
     # TODO: include age-based sex ratios
-    sexes = np.random.randint(2, size=len(age_by_uid))
+    sexes = np.random.randint(2, size=len(structs.age_by_uid))
 
-    for u, uid in enumerate(age_by_uid):
+    for u, uid in enumerate(structs.age_by_uid):
         popdict[uid] = {}
-        popdict[uid]['age'] = int(age_by_uid[uid])
+        popdict[uid]['age'] = int(structs.age_by_uid[uid])
         popdict[uid]['sex'] = sexes[u]
         popdict[uid]['loc'] = None
         popdict[uid]['contacts'] = {}
@@ -168,8 +143,8 @@ def make_contacts(pop,
 
     # read in facility residents and staff
     if use_ltcf:
-        for nf, facility in enumerate(facilities_by_uid_lists):
-            facility_staff = facilities_staff_uid_lists[nf]
+        for nf, facility in enumerate(structs.facilities_uid_lists):
+            facility_staff = structs.facilities_staff_uid_lists[nf]
 
             for u in facility:
                 popdict[u]['ltcf_res'] = 1
@@ -179,9 +154,9 @@ def make_contacts(pop,
                 popdict[u]['ltcf_staff'] = 1
                 popdict[u]['ltcfid'] = nf
 
-            if use_two_group_reduction:
+            if pars.use_two_group_reduction:
                 popdict = create_reduced_contacts_with_group_types(popdict, facility, facility_staff, 'LTCF',
-                                                                   average_degree=average_LTCF_degree,
+                                                                   average_degree=pars.average_LTCF_degree,
                                                                    force_cross_edges=True)
 
             else:
@@ -197,7 +172,7 @@ def make_contacts(pop,
                     popdict[uid]['contacts']['LTCF'].remove(uid)
 
     log.debug('...households ' + checkmem())
-    for nh, household in enumerate(homes_by_uids):
+    for nh, household in enumerate(structs.homes_by_uids):
         for uid in household:
             popdict[uid]['contacts']['H'] = set(household)
             popdict[uid]['contacts']['H'].remove(uid)
@@ -207,39 +182,39 @@ def make_contacts(pop,
 
     student_in_groups, teachers_in_groups = [], []
 
-    for ns, students in enumerate(students_by_uid_lists):
+    for ns, students in enumerate(structs.student_uid_lists):
 
         schools[ns] = {}
 
-        teachers = teachers_by_uid_lists[ns]
-        if non_teaching_staff_uid_lists is None:
+        teachers = structs.teacher_uid_lists[ns]
+        if structs.non_teaching_staff_uid_lists is None:
             non_teaching_staff = []
-        elif non_teaching_staff_uid_lists == []:
+        elif structs.non_teaching_staff_uid_lists == []:
             non_teaching_staff = []
         else:
-            non_teaching_staff = non_teaching_staff_uid_lists[ns]
+            non_teaching_staff = structs.non_teaching_staff_uid_lists[ns]
 
         this_school_type = None
         this_school_mixing_type = None
 
-        if with_school_types:
-            student_ages = [age_by_uid[i] for i in students]
+        if pars.with_school_types:
+            student_ages = [structs.age_by_uid[i] for i in students]
             min_age = min(student_ages)
-            this_school_type = school_type_by_age[min_age]
+            this_school_type = structs.school_type_by_age[min_age]
             this_school_mixing_type = school_mixing_type_dic[this_school_type]
             popdict, student_groups, teacher_groups = spsch.add_school_edges(popdict, students, student_ages,
-                                                                             teachers, non_teaching_staff, age_by_uid,
+                                                                             teachers, non_teaching_staff, structs.age_by_uid,
                                                                              grade_age_mapping, age_grade_mapping,
                                                                              average_class_size_by_mixing_type[this_school_mixing_type],
-                                                                             inter_grade_mixing,
-                                                                             average_student_teacher_ratio,
-                                                                             average_teacher_teacher_degree,
-                                                                             average_additional_staff_degree,
+                                                                             pars.inter_grade_mixing,
+                                                                             pars.average_student_teacher_ratio,
+                                                                             pars.average_teacher_teacher_degree,
+                                                                             pars.average_additional_staff_degree,
                                                                              this_school_mixing_type)
 
         else:
             school = students.copy() + teachers.copy() + non_teaching_staff.copy()
-            school_edges = spsch.generate_random_contacts_across_school(school, average_class_size)
+            school_edges = spsch.generate_random_contacts_across_school(school, pars.average_class_size)
             popdict = spsch.add_contacts_from_edgelist(popdict, school_edges, 'S')
             student_groups = [students]
             teacher_groups = [teachers]
@@ -273,7 +248,7 @@ def make_contacts(pop,
     if do_trim and 'W' in trim_keys:
 
         average_degree = max_contacts['W']
-        for nw, workplace in enumerate(workplace_by_uid_lists):
+        for nw, workplace in enumerate(structs.workplace_uid_lists):
             uids = np.array(workplace)
 
             G = random_graph_model(uids, average_degree)  # undirected graph
@@ -283,18 +258,18 @@ def make_contacts(pop,
                 popdict[uid]['contacts']['W'] = set(uids[v])
                 popdict[uid]['contacts']['W'].discard(uid)  # this shouldn't be needed
                 popdict[uid]['wpid'] = nw
-                if workplaces_by_industry_codes is not None: # pragma: no cover
-                    popdict[uid]['wpindcode'] = int(workplaces_by_industry_codes[nw])
+                if structs.workplaces_by_industry_codes is not None: # pragma: no cover
+                    popdict[uid]['wpindcode'] = int(structs.workplaces_by_industry_codes[nw])
 
     else: # pragma: no cover
-        for nw, workplace in enumerate(workplace_by_uid_lists):
+        for nw, workplace in enumerate(structs.workplace_uid_lists):
 
             for uid in workplace:
                 popdict[uid]['contacts']['W'] = set(workplace)
                 popdict[uid]['contacts']['W'].remove(uid)
                 popdict[uid]['wpid'] = nw
-                if workplaces_by_industry_codes is not None:
-                    popdict[uid]['wpindcode'] = int(workplaces_by_industry_codes[nw])
+                if structs.workplaces_by_industry_codes is not None:
+                    popdict[uid]['wpindcode'] = int(structs.workplaces_by_industry_codes[nw])
 
     log.debug('...done ' + checkmem())
     return popdict

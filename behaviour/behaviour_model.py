@@ -477,26 +477,25 @@ class BehaviourModel(sc.prettyobj):
 
         return teacher_uid_lists, non_teaching_staff_uid_lists, workplace_uid_lists, facilities_staff_uid_lists
 
-    def consolidate_structures(self, homes_by_uids, workplace_uid_lists, student_uid_lists, teacher_uid_lists, 
-        non_teaching_staff_uid_lists, school_types, facilities_by_uid_lists, facilities_staff_uid_lists):
+    def consolidate_structures(self, structs):
 
         """
         For each structural layer, creates a dictionary of those structures. Ex: schools: {1: {students: ...}}
-        The key workhorse is set_layer_classes(). 
+        The workhorse is set_layer_classes(). 
         """
-        school_mixing_types = [self.schools_in_groups[ns]['school_mixing_type'] for ns in range(len(self.schools_in_groups))]
 
         # temporarily store some information
-        self.homes_by_uids = homes_by_uids
-        self.workplace_uid_lists = workplace_uid_lists
-        self.student_uid_lists = student_uid_lists
-        self.teacher_uid_lists = teacher_uid_lists
-        self.non_teaching_staff_uid_lists = non_teaching_staff_uid_lists
-        self.school_types = school_types
-        self.school_mixing_types = school_mixing_types
+        self.homes_by_uids = structs.homes_by_uids
+        self.workplace_uid_lists = structs.workplace_uid_lists
+        self.student_uid_lists = structs.student_uid_lists
+        self.teacher_uid_lists = structs.teacher_uid_lists
+        self.non_teaching_staff_uid_lists = structs.non_teaching_staff_uid_lists
+        self.school_types = structs.school_types
+        self.school_mixing_types = list(structs.school_mixing_types.keys())
+
         if self.ltcf_pars.with_facilities:
-            self.facilities_by_uid_lists = facilities_by_uid_lists
-            self.facilities_staff_uid_lists = facilities_staff_uid_lists
+            self.facilities_by_uid_lists = structs.facilities_by_uid_lists
+            self.facilities_staff_uid_lists = structs.facilities_staff_uid_lists
 
             sum_ltcf_res = sum([len(f) for f in self.facilities_by_uid_lists])
             if sum_ltcf_res == 0:
@@ -507,17 +506,22 @@ class BehaviourModel(sc.prettyobj):
         self.set_layer_classes()
         self.clean_up_layer_info()
 
-    def generate(self):
+    def get_school_mixing_types(self, school_mixing_type, school_type_by_age):
         """
-        Actually generate the network.
-
-        Returns:
-            network (dict): A dictionary of the full population with ages, connections, and other attributes.
+        Returns dictionary of the school mixing types. Key is the school id. 
         """
-        log.debug('generate()')
+        # what are the school types by age
+        school_type_by_age = sc.mergedicts(spdata.get_default_school_types_by_age_single(), school_type_by_age)
+        school_types = list(set(school_type_by_age.values()))  # get the location specific school types whatever they may be
+        # check school mixing type
+        if isinstance(school_mixing_type, str):
+            school_mixing_type_dic = dict.fromkeys(school_types, school_mixing_type) # The bottom line school mixing types. 
+        elif isinstance(school_mixing_type, dict):
+            school_mixing_type_dic = sc.dcp(school_mixing_type)
+            school_mixing_type_dic = sc.mergedicts(dict.fromkeys(school_types, 'random'), school_mixing_type_dic)  # if the dictionary given doesn't specify the mixing type for an expected school type, set the mixing type for that school type to random by default
+        return school_mixing_type_dic
 
-        pars = self.load_pars_and_data()
-
+    def make_structures(self, pars):
         # Generate an age count for the population --- this will get passed around to methods generating the different layers where people live: long term care facilities, households, agricultural living quarters, other group living arrangements
         age_count = sphh.generate_age_count_multinomial(pars.n, pars.expected_age_dist_values)
 
@@ -544,36 +548,53 @@ class BehaviourModel(sc.prettyobj):
         homes_by_uids = homes_by_uids[len(facilities_by_uid_lists):]
         homes = homes[len(facilities_by_uid_lists):]
 
+        # update your school mixing types
+        school_mixing_types = self.get_school_mixing_types(pars.school_mixing_type, school_type_by_age)
+
+        # Consolidate the structural assignments. 
+        structs = sc.objdict()
+        structs.age_by_uid = age_by_uid
+        structs.homes_by_uids = homes_by_uids
+        structs.homes_by_ages = homes
+        structs.student_uid_lists = student_uid_lists
+        structs.teacher_uid_lists = teacher_uid_lists
+        structs.non_teaching_staff_uid_lists = non_teaching_staff_uid_lists
+        structs.workplace_uid_lists = workplace_uid_lists
+        structs.facilities_uid_lists = facilities_by_uid_lists
+        structs.facilities_staff_uid_lists = facilities_staff_uid_lists
+        structs.school_type_by_age = school_type_by_age
+        structs.school_mixing_types = school_mixing_types
+        structs.school_types = school_types
+
+        structs.workplaces_by_industry_codes = None # an unused param in make_contacts; by default None. 
+
+        return structs
+
+
+    def generate(self):
+        """
+        Actually generate the network.
+
+        Returns:
+            network (dict): A dictionary of the full population with ages, connections, and other attributes.
+        """
+        log.debug('generate()')
+
+        pars = self.load_pars_and_data()
+
+        structs = self.make_structures(pars)
+
         population = spcnx.make_contacts(self,
-                                         age_by_uid=age_by_uid,
-                                         homes_by_uids=homes_by_uids,
-                                         students_by_uid_lists=student_uid_lists,
-                                         teachers_by_uid_lists=teacher_uid_lists,
-                                         non_teaching_staff_uid_lists=non_teaching_staff_uid_lists,
-                                         workplace_by_uid_lists=workplace_uid_lists,
-                                         facilities_by_uid_lists=facilities_by_uid_lists,
-                                         facilities_staff_uid_lists=facilities_staff_uid_lists,
-                                         use_two_group_reduction=pars.use_two_group_reduction,
-                                         average_LTCF_degree=pars.average_LTCF_degree,
-                                         with_school_types=pars.with_school_types,
-                                         school_mixing_type=pars.school_mixing_type,
-                                         average_class_size=pars.average_class_size,
-                                         inter_grade_mixing=pars.inter_grade_mixing,
-                                         average_student_teacher_ratio=pars.average_student_teacher_ratio,
-                                         average_teacher_teacher_degree=pars.average_teacher_teacher_degree,
-                                         average_student_all_staff_ratio=pars.average_student_all_staff_ratio,
-                                         average_additional_staff_degree=pars.average_additional_staff_degree,
-                                         school_type_by_age=school_type_by_age,
-                                         max_contacts=pars.max_contacts)
+                                         structs,
+                                         pars)
+
+        # This needs to be placed here because additional structure (classroom-resolution for schools) is introduced in make_contacts. 
+        self.consolidate_structures(structs)
 
         # Change types
         for key, person in population.items():
             for layerkey in population[key]['contacts'].keys():
                 population[key]['contacts'][layerkey] = list(population[key]['contacts'][layerkey])
-
-        # Cannot move above contact generation because of schools_in_groups. 
-        self.consolidate_structures(homes_by_uids, workplace_uid_lists, student_uid_lists, teacher_uid_lists, 
-            non_teaching_staff_uid_lists, school_types, facilities_by_uid_lists, facilities_staff_uid_lists)
 
         return population
 
