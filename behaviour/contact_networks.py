@@ -10,10 +10,7 @@ from . import data_distributions as spdata
 from . import schools as spsch
 from .config import logger as log, checkmem
 
-
-def make_contacts(pop,
-                  structs,
-                  pars):
+def make_all_contacts(pop, structs, pars):
     """
     From microstructure objects (dictionary mapping ID to age, lists of lists in different settings, etc.), create a dictionary of individuals.
     Each key is the ID of an individual which maps to a dictionary for that individual with attributes such as their age, household ID (hhid),
@@ -60,86 +57,15 @@ def make_contacts(pop,
         If with_school_types==False, completely random schools will be generated with respect to the average_class_size,
         but other parameters such as average_additional_staff_degree will not be used.
     """
-    log.debug('make_contacts_from_microstructure_objects()')
-    popdict = {}
+    popdict = init_popdict_skele(structs, sexes=np.random.randint(2, size=len(structs.age_by_uid)))
+    popdict = make_home_contacts(pop, structs, pars, popdict)
+    popdict = make_school_contacts(pop, structs, pars, popdict)
+    popdict = make_work_contacts(pop, structs, pars, popdict)
+    return popdict
 
-    grade_age_mapping = {i: i + 5 for i in range(13)}
-    age_grade_mapping = {i + 5: i for i in range(13)}
-    age_grade_mapping[3] = 0
-    age_grade_mapping[4] = 0
-
-    school_mixing_type_dic = structs.school_mixing_types
-
-    # based on school mixing type, set some parameters.
-    age_and_class_clustered_flag = False
-    for school_type in school_mixing_type_dic:
-        if school_mixing_type_dic[school_type] == 'age_and_class_clustered':
-            pars.age_and_class_clustered_flag = True
-
-    if not isinstance(pars.average_class_size, dict):
-        average_class_size_by_mixing_type = dict.fromkeys(set(school_mixing_type_dic.values()), pars.average_class_size)
-
-    else:
-        average_class_size_by_mixing_type = sc.dcp(pars.average_class_size)
-        average_class_size_by_mixing_type = sc.mergedicts(dict.fromkeys(set(school_mixing_type_dic.values())), average_class_size_by_mixing_type)
-
-    if age_and_class_clustered_flag:
-        if pars.average_class_size < pars.average_student_teacher_ratio:
-            actual_classroom_size = max(pars.average_class_size, pars.average_student_teacher_ratio)
-            average_class_size_by_mixing_type['age_and_class_clustered'] = actual_classroom_size
-            warning_msg = f"average_class_size: {pars.average_class_size} < average_student_teacher_ratio: {pars.average_student_teacher_ratio}. \n In schools with mixing type 'age_and_class_clustered', synthpops will use the larger of the two to define the classroom sizes."
-            log.warning(warning_msg)
-
-    if len(list(average_class_size_by_mixing_type.keys())) > 1:
-        pop.average_class_size = average_class_size_by_mixing_type
-    else:
-        pop.average_class_size = list(average_class_size_by_mixing_type.values())[0]
-
-    uids = list(structs.age_by_uid.keys())
-
-    popdict = {}
-    # also need to return schools as well and not just school contacts
-    schools = {}
-
-    # Handle trimming
-    do_trim = pars.max_contacts is not None
-    max_contacts = sc.mergedicts({'W': 20}, pars.max_contacts)
-    trim_keys = max_contacts.keys()
-
-    # Handle LTCF
+def make_home_contacts(pop, structs, pars, popdict):
+    # We keep the LTCF stuff here. Because I haven't played with LTCF's yet, so I don't know whether it'll fly.
     use_ltcf = structs.facilities_uid_lists is not None
-    if use_ltcf:
-        layer_keys = ['H', 'S', 'W', 'C', 'LTCF']
-    else:
-        layer_keys = ['H', 'S', 'W', 'C']
-
-    log.debug('  starting...' + checkmem())
-
-    # TODO: include age-based sex ratios
-    sexes = np.random.randint(2, size=len(structs.age_by_uid))
-
-    for u, uid in enumerate(structs.age_by_uid):
-        popdict[uid] = {}
-        popdict[uid]['age'] = int(structs.age_by_uid[uid])
-        popdict[uid]['sex'] = sexes[u]
-        popdict[uid]['loc'] = None
-        popdict[uid]['contacts'] = {}
-        if use_ltcf:
-            popdict[uid]['ltcf_res'] = None
-            popdict[uid]['ltcf_staff'] = None
-        popdict[uid]['hhid'] = None
-        popdict[uid]['scid'] = None
-        popdict[uid]['sc_student'] = None
-        popdict[uid]['sc_teacher'] = None
-        popdict[uid]['sc_staff'] = None
-        popdict[uid]['sc_type'] = None
-        popdict[uid]['sc_mixing_type'] = None
-        popdict[uid]['wpid'] = None
-        popdict[uid]['wpindcode'] = None
-        if use_ltcf:
-            popdict[uid]['ltcfid'] = None
-        for k in layer_keys:
-            popdict[uid]['contacts'][k] = set()
 
     # read in facility residents and staff
     if use_ltcf:
@@ -179,9 +105,50 @@ def make_contacts(pop,
             popdict[uid]['hhid'] = nh
             popdict[uid]['hhincome'] = structs.fam_income_by_uid[uid]
 
-    log.debug('...students ' + checkmem())
+    return popdict
 
-    student_in_groups, teachers_in_groups = [], []
+def make_school_contacts(pop, structs, pars, popdict):
+    # Also initializes school microstructure, such as classes.
+
+    ############ A BUNCH OF SCHOOL INIT ############
+    grade_age_mapping = {i: i + 5 for i in range(13)}
+    age_grade_mapping = {i + 5: i for i in range(13)}
+    age_grade_mapping[3] = 0
+    age_grade_mapping[4] = 0
+
+    school_mixing_type_dic = structs.school_mixing_types
+
+    # based on school mixing type, set some parameters.
+    age_and_class_clustered_flag = False
+    for school_type in school_mixing_type_dic:
+        if school_mixing_type_dic[school_type] == 'age_and_class_clustered':
+            pars.age_and_class_clustered_flag = True 
+
+    if not isinstance(pars.average_class_size, dict):
+        average_class_size_by_mixing_type = dict.fromkeys(set(school_mixing_type_dic.values()), pars.average_class_size)
+
+    else:
+        average_class_size_by_mixing_type = sc.dcp(pars.average_class_size)
+        average_class_size_by_mixing_type = sc.mergedicts(dict.fromkeys(set(school_mixing_type_dic.values())), average_class_size_by_mixing_type)
+
+    if age_and_class_clustered_flag:
+        if pars.average_class_size < pars.average_student_teacher_ratio:
+            actual_classroom_size = max(pars.average_class_size, pars.average_student_teacher_ratio)
+            average_class_size_by_mixing_type['age_and_class_clustered'] = actual_classroom_size
+            warning_msg = f"average_class_size: {pars.average_class_size} < average_student_teacher_ratio: {pars.average_student_teacher_ratio}. \n In schools with mixing type 'age_and_class_clustered', synthpops will use the larger of the two to define the classroom sizes."
+            log.warning(warning_msg)
+
+    if len(list(average_class_size_by_mixing_type.keys())) > 1:
+        pop.average_class_size = average_class_size_by_mixing_type
+    else:
+        pop.average_class_size = list(average_class_size_by_mixing_type.values())[0]
+
+    uids = list(structs.age_by_uid.keys())
+    schools = {}
+
+    ############### GENERATE ADDITIONAL MICROSTRUCTURE AND MAKE CONTACTS ############
+
+    log.debug('...students ' + checkmem())
 
     for ns, students in enumerate(structs.student_uid_lists):
 
@@ -245,7 +212,15 @@ def make_contacts(pop,
 
     pop.schools_in_groups = schools
 
+    return popdict
+
+def make_work_contacts(pop, structs, pars, popdict):
+    # Handle trimming
+    do_trim = pars.max_contacts is not None
+    max_contacts = sc.mergedicts({'W': 20}, pars.max_contacts)
+    trim_keys = max_contacts.keys()
     log.debug('...workplaces ' + checkmem())
+    
     if do_trim and 'W' in trim_keys:
 
         average_degree = max_contacts['W']
@@ -273,8 +248,42 @@ def make_contacts(pop,
                     popdict[uid]['wpindcode'] = int(structs.workplaces_by_industry_codes[nw])
 
     log.debug('...done ' + checkmem())
+
     return popdict
 
+def init_popdict_skele(structs, sexes):
+    # Return population dictionary skeleton.
+    popdict = {}
+    use_ltcf=structs.facilities_uid_lists is not None
+    if use_ltcf:
+        layer_keys = ['H', 'S', 'W', 'C', 'LTCF']
+    else:
+        layer_keys = ['H', 'S', 'W', 'C']
+
+    for u, uid in enumerate(structs.age_by_uid):
+        popdict[uid] = {}
+        popdict[uid]['age'] = int(structs.age_by_uid[uid])
+        popdict[uid]['sex'] = sexes[u]
+        popdict[uid]['loc'] = None
+        popdict[uid]['contacts'] = {}
+        if use_ltcf:
+            popdict[uid]['ltcf_res'] = None
+            popdict[uid]['ltcf_staff'] = None
+        popdict[uid]['hhid'] = None
+        popdict[uid]['hhincome'] = None
+        popdict[uid]['scid'] = None
+        popdict[uid]['sc_student'] = None
+        popdict[uid]['sc_teacher'] = None
+        popdict[uid]['sc_staff'] = None
+        popdict[uid]['sc_type'] = None
+        popdict[uid]['sc_mixing_type'] = None
+        popdict[uid]['wpid'] = None
+        popdict[uid]['wpindcode'] = None
+        if use_ltcf:
+            popdict[uid]['ltcfid'] = None
+        for k in layer_keys:
+            popdict[uid]['contacts'][k] = set()
+    return popdict
 
 def create_reduced_contacts_with_group_types(popdict, group_1, group_2, setting, average_degree=20, p_matrix=None, force_cross_edges=True):
     """

@@ -589,7 +589,7 @@ class BehaviourModel(sc.prettyobj):
 
         structs = self.make_structures(pars)
 
-        population = spcnx.make_contacts(self,
+        population = spcnx.make_all_contacts(self,
                                          structs,
                                          pars)
 
