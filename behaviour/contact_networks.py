@@ -177,6 +177,7 @@ def make_contacts(pop,
             popdict[uid]['contacts']['H'] = set(household)
             popdict[uid]['contacts']['H'].remove(uid)
             popdict[uid]['hhid'] = nh
+            popdict[uid]['hhincome'] = structs.fam_income_by_uid[uid]
 
     log.debug('...students ' + checkmem())
 

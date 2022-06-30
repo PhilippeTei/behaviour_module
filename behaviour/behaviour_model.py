@@ -14,6 +14,7 @@ from . import workplaces as spw
 from . import contact_networks as spcnx
 from . import plotting as sppl
 from . import people as spp
+from . import custom as spc
 
 # __all__ = ['Pop', 'make_population', 'generate_synthetic_population']
 
@@ -534,6 +535,9 @@ class BehaviourModel(sc.prettyobj):
         # Generate Homes and place people into them. 
         age_by_uid, homes_by_uids, facilities_by_uid_lists, homes = self.generate_households(pars, n_nonltcf, ltcf_adjusted_age_dist, ages_left_to_assign, facilities)
         
+        # Allocate incomes to the households.
+        fam_income_by_uid = spc.allocate_household_incomes(pars, age_by_uid, homes_by_uids, homes)
+
         # Generate Schools and put students into them. (Put teachers in later)
         student_uid_lists, student_age_lists, school_type_by_age, school_types = self.generate_schools(pars, n_nonltcf, age_by_uid, homes_by_uids)
 
@@ -554,6 +558,7 @@ class BehaviourModel(sc.prettyobj):
         # Consolidate the structural assignments. 
         structs = sc.objdict()
         structs.age_by_uid = age_by_uid
+        structs.fam_income_by_uid = fam_income_by_uid
         structs.homes_by_uids = homes_by_uids
         structs.homes_by_ages = homes
         structs.student_uid_lists = student_uid_lists
