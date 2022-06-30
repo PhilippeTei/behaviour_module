@@ -46,6 +46,8 @@ class BehaviourModel(sc.prettyobj):
                  average_additional_staff_degree=20,
                  staff_age_min=20,
                  staff_age_max=75,
+                 com_contacts=20,
+                 com_dispersion=None,
                  rand_seed=None,
                  country_location=None,
                  state_location=None,
@@ -97,6 +99,8 @@ class BehaviourModel(sc.prettyobj):
             average_additional_staff_degree (float) : The average number of contacts per additional non teaching staff in schools.
             staff_age_min (int)                     : The minimum age for non teaching staff.
             staff_age_max (int)                     : The maximum age for non teaching staff.
+            com_contacts: average # contacts in the community. 
+            com_dispersion: if none, com_contacts is poisson, else negative binomial. Low dispersion = high spread. 
             rand_seed (int)                         : Start point random sequence is generated from.
             country_location (string)               : name of the country the location is in
             state_location (string)                 : name of the state the location is in
@@ -125,6 +129,7 @@ class BehaviourModel(sc.prettyobj):
         self.loc_pars           = sc.objdict()
         self.school_pars        = sc.objdict()
         self.ltcf_pars          = sc.objdict()
+        self.com_pars           = sc.objdict()
 
         self.n                  = int(n)
         self.max_contacts       = sc.mergedicts({'W': 20}, max_contacts)
@@ -165,6 +170,9 @@ class BehaviourModel(sc.prettyobj):
         self.ltcf_pars.ltcf_staff_age_min                = ltcf_staff_age_min
         self.ltcf_pars.ltcf_staff_age_max                = ltcf_staff_age_max
 
+        # Community parameters
+        self.com_pars.com_dispersion                     = com_dispersion
+        self.com_pars.com_contacts                       = com_contacts
         # If any parameters are supplied as a dict to override defaults, merge them in now
         self.school_pars = sc.objdict(sc.mergedicts(self.school_pars, school_pars))
         self.ltcf_pars   = sc.objdict(sc.mergedicts(self.ltcf_pars, ltcf_pars))
@@ -295,6 +303,10 @@ class BehaviourModel(sc.prettyobj):
         pars.average_additional_staff_degree = self.school_pars.average_additional_staff_degree
         pars.staff_age_min                   = self.school_pars.staff_age_min
         pars.staff_age_max                   = self.school_pars.staff_age_max
+
+        # Community parameters
+        pars.com_dispersion                  = self.com_pars.com_dispersion
+        pars.com_contacts                    = self.com_pars.com_contacts
 
         # Load and store the expected age distribution of the population
         pars.age_bracket_dist = spdata.read_age_bracket_distr(**pars.loc_pars)  # age distribution defined by bins or age brackets

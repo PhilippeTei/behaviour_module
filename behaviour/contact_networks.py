@@ -9,6 +9,7 @@ import networkx as nx
 from . import data_distributions as spdata
 from . import schools as spsch
 from .config import logger as log, checkmem
+from covasim import utils as cvu
 
 def make_all_contacts(pop, structs, pars):
     """
@@ -61,6 +62,24 @@ def make_all_contacts(pop, structs, pars):
     popdict = make_home_contacts(pop, structs, pars, popdict)
     popdict = make_school_contacts(pop, structs, pars, popdict)
     popdict = make_work_contacts(pop, structs, pars, popdict)
+    popdict = make_community_contacts(pop, structs, pars, popdict)
+    return popdict
+
+def make_community_contacts(pop, structs, pars, popdict):
+    # Loop through each individual
+    n_uids = pars.n
+    for uid in range(n_uids):
+        # Draw N; (poisson or lognormal) the number of interactions they'll have
+        if pars.com_dispersion is None:
+            n_contacts = cvu.n_poisson(pars.com_contacts, 1)[0]
+        else:
+            n_contacts = cvu.n_neg_binomial(pars.com_contacts, pars.com_dispersion, 1)[0]
+        
+        n_contacts = int(n_contacts/2.0) # Contacts counted twice in Covasim engine.
+
+        # Randomly select N people from the population. (UID's)
+        popdict[uid]['contacts']['C'] = set(cvu.choose_r(max_n=n_uids,n=n_contacts))
+    
     return popdict
 
 def make_home_contacts(pop, structs, pars, popdict):

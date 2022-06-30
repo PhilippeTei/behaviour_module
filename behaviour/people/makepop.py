@@ -62,7 +62,12 @@ def make_people(n=None, popdict=None, rand_seed=1, pop_type='synthpops', locatio
             errormsg = f'Population type "{pop_type}" not found; choices are random, clustered, hybrid, or synthpops'
             raise ValueError(errormsg)
     else:
-        popdict = parse_synthpop(popdict)
+        if pop_type == 'synthpops':
+            popdict = parse_synthpop(popdict)
+        elif pop_type == 'behaviour_module':
+            popdict = parse_behaviour_module(popdict)
+        else:
+            raise ValueError
 
     # Actually create the people
     people = spp.People(pars, uid=popdict['uid'], age=popdict['age'], sex=popdict['sex'], contacts=popdict['contacts']) # List for storing the people
@@ -352,6 +357,61 @@ def parse_synthpop(population, layer_mapping=None, community_contacts=0):
     c_contacts, _ = make_random_contacts(pop_size, {'c':community_contacts})
     for i in range(int(pop_size)):
         contacts[i]['c'] = c_contacts[i]['c'] # Copy over community contacts -- present for everyone
+
+    # Finalize
+    popdict = {}
+    popdict['uid']        = np.array(list(uid_mapping.values()), dtype=spu.default_int)
+    popdict['age']        = np.array(ages)
+    popdict['sex']        = np.array(sexes)
+    popdict['contacts']   = sc.dcp(contacts)
+    popdict['layer_keys'] = list(layer_mapping.values())
+
+    return popdict
+
+
+def parse_behaviour_module(population, layer_mapping=None):
+    '''
+    Identical to above but remove bottom few lines which overwrite the community contacts. 
+
+    Args:
+        population (list): a pre-generated SynthPops population
+        layer_mapping (dict): a custom mapping from SynthPops layers to Covasim layers
+        community_contacts (int): create this many community contacts on average
+
+    New in version 1.10.0.
+    '''
+    # Handle layer mapping
+    default_layer_mapping = {'H':'h', 'S':'s', 'W':'w', 'C':'c', 'LTCF':'l'} # Remap keys from old names to new names
+    layer_mapping = sc.mergedicts(default_layer_mapping, layer_mapping)
+
+    # Create the basic lists
+    pop_size = len(population)
+    uids, ages, sexes, contacts = [], [], [], []
+    for uid,person in population.items():
+        uids.append(uid)
+        ages.append(person['age'])
+        sexes.append(person['sex'])
+
+    # Replace contact UIDs with ints
+    uid_mapping = {uid:u for u,uid in enumerate(uids)}
+    for uid in uids:
+        iid = uid_mapping[uid] # Integer UID
+        person = population.pop(uid)
+        uid_contacts = sc.dcp(person['contacts'])
+        int_contacts = {}
+        for spkey in uid_contacts.keys():
+            try:
+                lkey = layer_mapping[spkey] # Map the SynthPops key into a Covasim layer key
+            except KeyError: # pragma: no cover
+                errormsg = f'Could not find key "{spkey}" in layer mapping "{layer_mapping}"'
+                raise sc.KeyNotFoundError(errormsg)
+            int_contacts[lkey] = []
+            for cid in uid_contacts[spkey]: # Contact ID
+                icid = uid_mapping[cid] # Integer contact ID
+                if icid>iid: # Don't add duplicate contacts
+                    int_contacts[lkey].append(icid)
+            int_contacts[lkey] = np.array(int_contacts[lkey], dtype=spu.default_int)
+        contacts.append(int_contacts)
 
     # Finalize
     popdict = {}
