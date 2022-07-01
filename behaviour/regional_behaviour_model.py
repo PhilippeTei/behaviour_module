@@ -14,28 +14,39 @@ def load_default_mixing_pars(num_cities):
 
     return ret # Just a matrix with the diagonal set to come_from_cur.
 
-class RegionalBehaviourModel(BehaviourModel):
+class RegionalBehaviourModel():
     def __init__(self, mixing_pars = None, *args):
         if mixing_pars == None:
             mixing_pars = load_default_mixing_pars(len(args))
         
         # Init cities
-        self.cities = sc.objdict()
-        for city_params in args: # args is a list.
-            cur_city = city_params.pop('name')
-            city_params["as_region"] = True
-            self.cities[cur_city] = BehaviourModel(city_params)
+        self.regs = sc.objdict() # reg stands for region.
+        for reg_params in args: # args is a list.
+            cur_reg = reg_params.pop('name')
+            reg_params["as_region"] = True
+            self.regs[cur_reg] = BehaviourModel(reg_params) # inits. 
 
         # Allocate people to their structures. TODO: coupled initialization for workplaces.
-        all_structs = {} # Structural information for all cities.
-
-        for cname, csim in self.cities.items():
-            all_structs[cname] = csim.make_structures()
+        for _, rsim in self.regs.items():
+            rsim.make_structures()
         
         # Make connections. 
-        for cname, csim in self.cities.items():
-            # TODO.
-            print("DEBG")
+        for _, rsim in self.regs.items():
+            rsim.init_contact_structure() # TODO: implement these wrappers
+            rsim.make_home_contacts()
+            rsim.make_school_contacts()
+            rsim.make_work_contacts()
+        
+        self.make_mixed_community_contacts()
+
+        self.aggregate_regions() # make a popdict usable by covasim.
+
+    def make_mixed_community_contacts():
+        return
+
+    def aggregate_regions():
+        # TODO: just append the popdicts.
+        return
 
 if __name__ == "__main__":
     params_ca = dict(name = 'toronto', n=20000, com_contacts=20) # large city

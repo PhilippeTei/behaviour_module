@@ -186,6 +186,7 @@ class BehaviourModel(sc.prettyobj):
         # Used for intermediate computation.
         self.structs = None # structural information
         self.popdict = None # contact information per persion
+        self.pars = None # parameters loaded in load_parameters(). Includes sim input params (n, etc) and contact matricies. 
 
         if pars.as_region == False: # Generate the population separately if doing multi-region simulation, 
             # i.e. via regional_behaviour_model.py
@@ -220,8 +221,32 @@ class BehaviourModel(sc.prettyobj):
     #     n_nonltcf, ltcf_adjusted_age_dist, ltcf_adjusted_age_dist_values, ages_left_to_assign, facilities = spltcf.generate_ltcfs(n, with_facilities, loc_pars, expected_age_dist, ages_left_to_assign)
 
     #     self.generate_households()
+    ############ SOME CONTACT WRAPPER FUNCTIONS ##########
 
+    def init_contact_structure(self):
+        sexes = np.random.randint(2, size=len(self.structs.age_by_uid))
+        self.popdict = spcnx.init_popdict_skele(self.structs, sexes=sexes)
 
+    def make_home_contacts(self):
+        self.popdict = spcnx.make_home_contacts(self, self.structs, self.pars, self.popdict)
+    
+    def make_school_contacts(self):
+        self.popdict = spcnx.make_school_contacts(self, self.structs, self.pars, self.popdict)
+
+    def make_work_contacts(self):
+        self.popdict = spcnx.make_work_contacts(self, self.structs, self.pars, self.popdict)
+
+    def make_comm_contacts(self):
+        self.popdict = spcnx.make_community_contacts(self, self.structs, self.pars, self.popdict)
+
+    def make_all_contacts(self):
+        self.init_contact_structure()
+        self.make_home_contacts()
+        self.make_school_contacts()
+        self.make_work_contacts()
+        self.make_comm_contacts()
+        
+    ############################
     def load_pars_and_data(self):
         """
         Loads all census data, contact data, etc. 
@@ -301,7 +326,7 @@ class BehaviourModel(sc.prettyobj):
         pars.cm_age_by_brackets = spb.get_age_by_brackets(pars.cm_age_brackets)
         self.cm_age_by_brackets = pars.cm_age_by_brackets
 
-        return pars
+        self.pars = pars
 
     def generate_households(self, pars, 
         n_nonltcf, ltcf_adjusted_age_dist, ages_left_to_assign, facilities):
@@ -499,7 +524,9 @@ class BehaviourModel(sc.prettyobj):
             school_mixing_type_dic = sc.mergedicts(dict.fromkeys(school_types, 'random'), school_mixing_type_dic)  # if the dictionary given doesn't specify the mixing type for an expected school type, set the mixing type for that school type to random by default
         return school_mixing_type_dic
 
-    def make_structures(self, pars):
+    def make_structures(self):
+        pars = self.pars
+
         # Generate an age count for the population --- this will get passed around to methods generating the different layers where people live: long term care facilities, households, agricultural living quarters, other group living arrangements
         age_count = sphh.generate_age_count_multinomial(pars.n, pars.expected_age_dist_values)
 
@@ -562,11 +589,12 @@ class BehaviourModel(sc.prettyobj):
         """
         log.debug('generate()')
 
-        pars = self.load_pars_and_data()
+        self.load_pars_and_data() # Updates self.pars
 
-        self.make_structures(pars) # Updates self.structs
+        self.make_structures() # Updates self.structs
 
-        spcnx.make_all_contacts(self, self.structs, pars) # Updates self.popdict
+        # spcnx.make_all_contacts(self, self.structs, self.pars) # Updates self.popdict
+        self.make_all_contacts()
 
         # This needs to be placed here because additional structure (classroom-resolution for schools) is introduced in make_contacts. 
         self.consolidate_structures(self.structs)
