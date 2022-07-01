@@ -3,8 +3,8 @@ import behaviour as bh
 import sciris as sc
 
 # Set defaults
-pop_size = 10000
-pop_mod = bh.BehaviourModel(n=pop_size, rand_seed=1)  # Other Pop parameters can be adjusted 
+pars = dict(n = 10000, rand_seed=1)
+pop_mod = bh.BehaviourModel(pars)  # Other Pop parameters can be adjusted 
 
 pop_truth = sc.loadobj('/home/andrew/dev/wble_proj/behaviour_module/tests/population_truth.pop')
 
@@ -47,6 +47,6 @@ d_pop_mod = pop_mod.popdict
 
 assert len(d_pop_truth) == len(d_pop_mod)
 
-for uid in range(len(d_pop_truth)):
-    for layer in ['H','S','W','C']:
+for uid in range(len(d_pop_truth)): # Don't probe in the community layer b/c normal SP doesn't have it. 
+    for layer in ['H','S','W']:
         assert np.array_equal(d_pop_mod[uid]['contacts'][layer], d_pop_truth[uid]['contacts'][layer])

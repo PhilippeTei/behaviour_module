@@ -18,45 +18,10 @@ from . import custom as spc
 
 # __all__ = ['Pop', 'make_population', 'generate_synthetic_population']
 
-
 class BehaviourModel(sc.prettyobj):
 
     def __init__(self,
-                 n=None,
-                 max_contacts=None,
-                 ltcf_pars=None,
-                 school_pars=None,
-                 with_industry_code=False,
-                 with_facilities=False,
-                 use_default=False,
-                 use_two_group_reduction=True,
-                 average_LTCF_degree=20,
-                 ltcf_staff_age_min=20,
-                 ltcf_staff_age_max=60,
-                 with_school_types=False,
-                 school_mixing_type='random',
-                 average_class_size=20,
-                 inter_grade_mixing=0.1,
-                 average_student_teacher_ratio=20,
-                 average_teacher_teacher_degree=3,
-                 teacher_age_min=25,
-                 teacher_age_max=75,
-                 with_non_teaching_staff=False,
-                 average_student_all_staff_ratio=15,
-                 average_additional_staff_degree=20,
-                 staff_age_min=20,
-                 staff_age_max=75,
-                 com_contacts=20,
-                 com_dispersion=None,
-                 rand_seed=None,
-                 country_location=None,
-                 state_location=None,
-                 location=None,
-                 sheet_name=None,
-                 household_method='infer_ages',
-                 smooth_ages=False,
-                 window_length=7,
-                 do_make=True
+                 pars=None
                  ):
         '''
         Make a full population network including both people (ages, sexes) and
@@ -116,14 +81,17 @@ class BehaviourModel(sc.prettyobj):
         '''
         log.debug('Pop()')
         print("BEHAVIOUR_MODULE")
+        
+        default_pars = spc.make_pars() # returns a sciris object dict. 
+        pars = spc.update_pars(default_pars, pars)
 
         # General parameters
-        if n is None:
+        if pars.n is None:
             log.warning(f"Pop size n not given, generating a population with a default size of {defaults.default_pop_size} people.")
-            n = defaults.default_pop_size
+            pars.n = defaults.default_pop_size
 
-        elif n < defaults.default_pop_size:
-            log.warning(f"Pop size n: {n} is too small for synthpops to make contact networks that statistically represent real world populations. Resultant networks may not look realistic.")
+        elif pars.n < defaults.default_pop_size:
+            log.warning(f"Pop size n: {pars.n} is too small for synthpops to make contact networks that statistically represent real world populations. Resultant networks may not look realistic.")
 
         # Assign all the variables
         self.loc_pars           = sc.objdict()
@@ -131,51 +99,51 @@ class BehaviourModel(sc.prettyobj):
         self.ltcf_pars          = sc.objdict()
         self.com_pars           = sc.objdict()
 
-        self.n                  = int(n)
-        self.max_contacts       = sc.mergedicts({'W': 20}, max_contacts)
-        self.with_industry_code = with_industry_code
-        self.rand_seed          = rand_seed
-        self.country_location   = country_location
-        self.state_location     = state_location
-        self.location           = location
-        self.sheet_name         = sheet_name
-        self.use_default        = use_default
+        self.n                  = int(pars.n)
+        self.max_contacts       = sc.mergedicts({'W': 20}, pars.max_contacts)
+        self.with_industry_code = pars.with_industry_code
+        self.rand_seed          = pars.rand_seed
+        self.country_location   = pars.country_location
+        self.state_location     = pars.state_location
+        self.location           = pars.location
+        self.sheet_name         = pars.sheet_name
+        self.use_default        = pars.use_default
 
         # Age distribution parameters
-        self.smooth_ages                                 = smooth_ages
-        self.window_length                               = window_length
+        self.smooth_ages                                 = pars.smooth_ages
+        self.window_length                               = pars.window_length
 
         # Household parameters
-        self.household_method                            = household_method
+        self.household_method                            = pars.household_method
 
         # School parameters
-        self.school_pars.with_school_types               = with_school_types
-        self.school_pars.school_mixing_type              = school_mixing_type
-        self.school_pars.average_class_size              = average_class_size
-        self.school_pars.inter_grade_mixing              = inter_grade_mixing
-        self.school_pars.average_student_teacher_ratio   = average_student_teacher_ratio
-        self.school_pars.average_teacher_teacher_degree  = average_teacher_teacher_degree
-        self.school_pars.teacher_age_min                 = teacher_age_min
-        self.school_pars.teacher_age_max                 = teacher_age_max
-        self.school_pars.with_non_teaching_staff         = with_non_teaching_staff
-        self.school_pars.average_student_all_staff_ratio = average_student_all_staff_ratio
-        self.school_pars.average_additional_staff_degree = average_additional_staff_degree
-        self.school_pars.staff_age_min                   = staff_age_min
-        self.school_pars.staff_age_max                   = staff_age_max
+        self.school_pars.with_school_types               = pars.with_school_types
+        self.school_pars.school_mixing_type              = pars.school_mixing_type
+        self.school_pars.average_class_size              = pars.average_class_size
+        self.school_pars.inter_grade_mixing              = pars.inter_grade_mixing
+        self.school_pars.average_student_teacher_ratio   = pars.average_student_teacher_ratio
+        self.school_pars.average_teacher_teacher_degree  = pars.average_teacher_teacher_degree
+        self.school_pars.teacher_age_min                 = pars.teacher_age_min
+        self.school_pars.teacher_age_max                 = pars.teacher_age_max
+        self.school_pars.with_non_teaching_staff         = pars.with_non_teaching_staff
+        self.school_pars.average_student_all_staff_ratio = pars.average_student_all_staff_ratio
+        self.school_pars.average_additional_staff_degree = pars.average_additional_staff_degree
+        self.school_pars.staff_age_min                   = pars.staff_age_min
+        self.school_pars.staff_age_max                   = pars.staff_age_max
 
         # LTCF parameters
-        self.ltcf_pars.with_facilities                   = with_facilities
-        self.ltcf_pars.use_two_group_reduction           = use_two_group_reduction
-        self.ltcf_pars.average_LTCF_degree               = average_LTCF_degree
-        self.ltcf_pars.ltcf_staff_age_min                = ltcf_staff_age_min
-        self.ltcf_pars.ltcf_staff_age_max                = ltcf_staff_age_max
+        self.ltcf_pars.with_facilities                   = pars.with_facilities
+        self.ltcf_pars.use_two_group_reduction           = pars.use_two_group_reduction
+        self.ltcf_pars.average_LTCF_degree               = pars.average_LTCF_degree
+        self.ltcf_pars.ltcf_staff_age_min                = pars.ltcf_staff_age_min
+        self.ltcf_pars.ltcf_staff_age_max                = pars.ltcf_staff_age_max
 
         # Community parameters
-        self.com_pars.com_dispersion                     = com_dispersion
-        self.com_pars.com_contacts                       = com_contacts
+        self.com_pars.com_dispersion                     = pars.com_dispersion
+        self.com_pars.com_contacts                       = pars.com_contacts
         # If any parameters are supplied as a dict to override defaults, merge them in now
-        self.school_pars = sc.objdict(sc.mergedicts(self.school_pars, school_pars))
-        self.ltcf_pars   = sc.objdict(sc.mergedicts(self.ltcf_pars, ltcf_pars))
+        self.school_pars = sc.objdict(sc.mergedicts(self.school_pars, pars.school_pars))
+        self.ltcf_pars   = sc.objdict(sc.mergedicts(self.ltcf_pars, pars.ltcf_pars))
 
         # what are the layers generated?
         if self.ltcf_pars.with_facilities:
@@ -194,8 +162,8 @@ class BehaviourModel(sc.prettyobj):
             self.state_location   = defaults.settings.state_location
             self.location         = defaults.settings.location
         else:
-            print(f"========== setting country location = {country_location}")
-            cfg.set_location_defaults(country_location)
+            print(f"========== setting country location = {pars.country_location}")
+            cfg.set_location_defaults(pars.country_location)
 
         self.max_age = defaults.settings.max_age
 
