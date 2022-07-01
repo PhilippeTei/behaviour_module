@@ -47,5 +47,6 @@ def make_pars():
             household_method='infer_ages',
             smooth_ages=False,
             window_length=7,
-            do_make=True)
+            do_make=True,
+            as_region = False)
     return ret

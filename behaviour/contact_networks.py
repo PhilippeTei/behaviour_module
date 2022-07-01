@@ -58,12 +58,11 @@ def make_all_contacts(pop, structs, pars):
         If with_school_types==False, completely random schools will be generated with respect to the average_class_size,
         but other parameters such as average_additional_staff_degree will not be used.
     """
-    popdict = init_popdict_skele(structs, sexes=np.random.randint(2, size=len(structs.age_by_uid)))
-    popdict = make_home_contacts(pop, structs, pars, popdict)
-    popdict = make_school_contacts(pop, structs, pars, popdict)
-    popdict = make_work_contacts(pop, structs, pars, popdict)
-    popdict = make_community_contacts(pop, structs, pars, popdict)
-    return popdict
+    pop.popdict = init_popdict_skele(structs, sexes=np.random.randint(2, size=len(structs.age_by_uid)))
+    pop.popdict = make_home_contacts(pop, structs, pars, pop.popdict)
+    pop.popdict = make_school_contacts(pop, structs, pars, pop.popdict)
+    pop.popdict = make_work_contacts(pop, structs, pars, pop.popdict)
+    pop.popdict = make_community_contacts(pop, structs, pars, pop.popdict)
 
 def make_community_contacts(pop, structs, pars, popdict):
     # Loop through each individual

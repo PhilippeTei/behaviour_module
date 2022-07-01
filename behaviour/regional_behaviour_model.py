@@ -26,6 +26,17 @@ class RegionalBehaviourModel(BehaviourModel):
             city_params["as_region"] = True
             self.cities[cur_city] = BehaviourModel(city_params)
 
+        # Allocate people to their structures. TODO: coupled initialization for workplaces.
+        all_structs = {} # Structural information for all cities.
+
+        for cname, csim in self.cities.items():
+            all_structs[cname] = csim.make_structures()
+        
+        # Make connections. 
+        for cname, csim in self.cities.items():
+            # TODO.
+            print("DEBG")
+
 if __name__ == "__main__":
     params_ca = dict(name = 'toronto', n=20000, com_contacts=20) # large city
     params_cb = dict(name = 'miss', n=10000, com_contacts=10) # medium city

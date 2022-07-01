@@ -183,27 +183,24 @@ class BehaviourModel(sc.prettyobj):
         self.loc_pars.datadir          = self.datadir
         self.loc_pars.use_default      = self.use_default
 
-        log.debug('Generating a new population...')
-        
-        # # Heavy: generate structures and place people into them.
-        # self.initialize()
-        # # Heavy. Requires you to initialize the structures first. 
-        # self.popdict = self.generate_contact_networks()
-        
-        log.debug('Generating a new population...')
-        population = self.generate()
-        self.popdict = population
+        # Used for intermediate computation.
+        self.structs = None # structural information
+        self.popdict = None # contact information per persion
 
+        if pars.as_region == False: # Generate the population separately if doing multi-region simulation, 
+            # i.e. via regional_behaviour_model.py
+            log.debug('Generating a new population...')
+            self.generate() # updates self.popdict
 
-        # Add summaries post hoc  --- TBD: summaries during generation
-        self.compute_information()  # compute full information
-        self.compute_summary()  # then compute condensed summary
+            # Add summaries post hoc  --- TBD: summaries during generation
+            self.compute_information()  # compute full information
+            self.compute_summary()  # then compute condensed summary
 
-        # Plotting defaults
-        self.plkwargs = sppl.plotting_kwargs()
+            # Plotting defaults
+            self.plkwargs = sppl.plotting_kwargs()
 
-        # Set metadata -- version etc.
-        cfg.set_metadata(self)
+            # Set metadata -- version etc.
+            cfg.set_metadata(self)
 
         return
 
@@ -553,7 +550,7 @@ class BehaviourModel(sc.prettyobj):
 
         structs.workplaces_by_industry_codes = None # an unused param in make_contacts; by default None. 
 
-        return structs
+        self.structs = structs
 
 
     def generate(self):
@@ -567,21 +564,17 @@ class BehaviourModel(sc.prettyobj):
 
         pars = self.load_pars_and_data()
 
-        structs = self.make_structures(pars)
+        self.make_structures(pars) # Updates self.structs
 
-        population = spcnx.make_all_contacts(self,
-                                         structs,
-                                         pars)
+        spcnx.make_all_contacts(self, self.structs, pars) # Updates self.popdict
 
         # This needs to be placed here because additional structure (classroom-resolution for schools) is introduced in make_contacts. 
-        self.consolidate_structures(structs)
+        self.consolidate_structures(self.structs)
 
         # Change types
-        for key, person in population.items():
-            for layerkey in population[key]['contacts'].keys():
-                population[key]['contacts'][layerkey] = list(population[key]['contacts'][layerkey])
-
-        return population
+        for key, person in self.popdict.items():
+            for layerkey in self.popdict[key]['contacts'].keys():
+                self.popdict[key]['contacts'][layerkey] = list(self.popdict[key]['contacts'][layerkey])
 
     def set_layer_classes(self):
         """Add layer classes."""
