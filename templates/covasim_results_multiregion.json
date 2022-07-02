@@ -1,0 +1,25 @@
+{
+    "toronto":{
+        "cum_infections":covasim.base.Result,
+        "cum_reinfections":...,
+        "..."
+    },
+    "mississauga":{
+        ...
+    },
+    ...
+}
+
+{
+    "cum_infections":covasim.base.Results,
+    "cum_reinfections":covasim.base.Results,
+    "...",
+    "toronto_cum_infections":covasim.base.Results,
+    ...,
+    "variant":{
+        "n_exposed_by_variant":covasim.base.Results,
+        ...,
+        "toronto_n_exposed_by_variant":covasim.base.Results,
+        ...
+    }   
+}

@@ -9,8 +9,39 @@ params_cc = {'name' = 'milton',  'n'=5000,  'com_contacts'=10} # small city
 
 d = RegionalBehaviourModel(params_ca, params_cb ,params_cc ,mixing_pars=None)
 
+How will this be used?
+- covasim: translate popdict into people.
+    - contacts: per layer contacts. Schools, etc.
+        - p1 ordered
+    - traits.
+
+What structure needs to remain in the cities? (Within the regions object)
+- Their parameters.
+- Their generating structures.
+
+What structure is visible from outside the reigions object?
+
+structure: a) stored in the sub regions. 
+    - have a foreigner option. 
+        - take the foreigners, put them in the array, sample.
+or:
+           b) stored in total region.
+    - communities, schools, etc. 
+    - NONTRIVIAL. FIGURE OUT LATER. 
+
+contacts: stored in the total region.
+
+
 class RegionalBehaviourModel(BehaviourModel)
     def __init__(self, mixing_pars, **kwargs,){
+
+        #### ADDITIONAL PARAMS ####
+        self.contacts['community']['p1'] = []
+        self.contacts[] ...
+        (do for each layer. Directly populated by a make_mixed_... contact. 
+        For individually inited, we have aggregate_regions())
+
+        #### ####
         if mixing_pars == None: 
             self.load_default_mixing_pars()
         # Init cities
@@ -48,3 +79,12 @@ ___
 if as_multi_region == False:
     generate()
 ___
+
+#### Calculating Statistics ####
+
+def update_statistics():
+    reg_sizes = [20k, 10k, 5k, 35k]
+    reg_starts = [0, 20k, 5k, 0]
+    reg_names = ["Toronto", "Mississauga", "Milton", ""] // cumulative called nothing so cur plotting works.
+
+    #people.count -> param: start, end indexes. If none, do normal. O.W., return count_nonzero in the range. 

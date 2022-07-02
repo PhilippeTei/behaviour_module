@@ -84,6 +84,7 @@ class BehaviourModel(sc.prettyobj):
         
         default_pars = spc.make_pars() # returns a sciris object dict. 
         pars = spc.update_pars(default_pars, pars)
+        self.input_pars = pars
 
         # General parameters
         if pars.n is None:
@@ -245,7 +246,7 @@ class BehaviourModel(sc.prettyobj):
         self.make_school_contacts()
         self.make_work_contacts()
         self.make_comm_contacts()
-        
+
     ############################
     def load_pars_and_data(self):
         """
