@@ -88,3 +88,25 @@ def update_statistics():
     reg_names = ["Toronto", "Mississauga", "Milton", ""] // cumulative called nothing so cur plotting works.
 
     #people.count -> param: start, end indexes. If none, do normal. O.W., return count_nonzero in the range. 
+
+#### Initial Conditions (Infections) Parameters ####
+- How many people
+- Which cities
+- Who?
+
+-> Looks like best to input a function, like an intervention.
+    -> Output of a function: specific UID's.
+    -> Ex: isolate roles from the Synthpops object. 
+So it can be something like:
+
+# Basic params is just 'pop_infected', built-in.
+t0_advanced_i_params = {
+    uid_list = None
+    regs_to_infect = {'toronto':10, 'miss':10, 'milton':0} # TODO: Must be everything. 
+}
+if i_list == None:
+    if regs == None:
+        infect(n people)
+    
+else:
+    infect those on i_list

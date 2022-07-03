@@ -495,7 +495,7 @@ class BehaviourModel(sc.prettyobj):
         self.teacher_uid_lists = structs.teacher_uid_lists
         self.non_teaching_staff_uid_lists = structs.non_teaching_staff_uid_lists
         self.school_types = structs.school_types
-        self.school_mixing_types = list(structs.school_mixing_types.keys())
+        self.school_mixing_types = [self.schools_in_groups[ns]['school_mixing_type'] for ns in range(len(self.schools_in_groups))]
 
         if self.ltcf_pars.with_facilities:
             self.facilities_by_uid_lists = structs.facilities_by_uid_lists
