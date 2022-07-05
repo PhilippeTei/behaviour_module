@@ -75,6 +75,7 @@ class BehaviourModel(sc.prettyobj):
             smooth_ages (bool)                      : If True, use smoothed out age distribution.
             window_length (int)                     : length of window over which to average or smooth out age distribution
             do_make (bool)                          : whether to make the population
+            base_uid: the first UID to assign. Ex: if base_uid = 20k, n = 10k, the agents will be numbered 20-30k. 
 
         Returns:
             network (dict): A dictionary of the full population with ages, connections, and other attributes.
@@ -225,7 +226,14 @@ class BehaviourModel(sc.prettyobj):
     ############ SOME CONTACT WRAPPER FUNCTIONS ##########
 
     def init_contact_structure(self):
-        sexes = np.random.randint(2, size=len(self.structs.age_by_uid))
+        sexes_list = np.random.randint(2, size=len(self.structs.age_by_uid))
+
+        sexes = dict()
+        i = 0
+        for uid in self.structs.age_by_uid:
+            sexes[uid] = sexes_list[i]
+            i += 1
+        
         self.popdict = spcnx.init_popdict_skele(self.structs, sexes=sexes)
 
     def make_home_contacts(self):
@@ -351,9 +359,9 @@ class BehaviourModel(sc.prettyobj):
 
         # Handle homes and facilities
         homes = facilities + homes
-        homes_by_uids, age_by_uid = sphh.assign_uids_by_homes(homes)  # include facilities to assign ids
-        age_by_uid_arr = np.array([age_by_uid[i] for i in range(self.n)], dtype=int)
-        self.age_by_uid = age_by_uid_arr
+        homes_by_uids, age_by_uid = sphh.assign_uids_by_homes(homes, self.input_pars["base_uid"])  # include facilities to assign ids
+        # age_by_uid_arr = np.array([age_by_uid[i] for i in range(self.n)], dtype=int)
+        self.age_by_uid = age_by_uid
 
         facilities_by_uid_lists = homes_by_uids[0:len(facilities)]
 

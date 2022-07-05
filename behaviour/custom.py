@@ -2,8 +2,10 @@ import numpy as np
 import sciris as sc
 
 def allocate_household_incomes(pars, age_by_uid, homes_by_uids, homes):
-
-    return 70000*np.ones(len(age_by_uid))
+    ret = dict()
+    for uid in age_by_uid:
+        ret[uid] = 70000
+    return ret
 
 def update_pars(default_pars, pars):
     for key, item in pars.items():
@@ -48,5 +50,6 @@ def make_pars():
             smooth_ages=False,
             window_length=7,
             do_make=True,
-            as_region = False)
+            as_region = False,
+            base_uid=0)
     return ret

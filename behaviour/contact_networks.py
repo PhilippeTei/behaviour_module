@@ -278,10 +278,10 @@ def init_popdict_skele(structs, sexes):
     else:
         layer_keys = ['H', 'S', 'W', 'C']
 
-    for u, uid in enumerate(structs.age_by_uid):
+    for uid in structs.age_by_uid:
         popdict[uid] = {}
         popdict[uid]['age'] = int(structs.age_by_uid[uid])
-        popdict[uid]['sex'] = sexes[u]
+        popdict[uid]['sex'] = sexes[uid]
         popdict[uid]['loc'] = None
         popdict[uid]['contacts'] = {}
         if use_ltcf:

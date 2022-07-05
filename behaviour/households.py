@@ -207,7 +207,7 @@ def generate_household_size_count_from_fixed_pop_size(N, hh_size_distr):
     return hh_sizes
 
 
-def assign_uids_by_homes(homes, id_len=16, use_int=True):
+def assign_uids_by_homes(homes, base_uid=0, id_len=16, use_int=True):
     """
     Assign IDs to everyone in order by their households.
 
@@ -229,7 +229,7 @@ def assign_uids_by_homes(homes, id_len=16, use_int=True):
         home_ids = []
         for a in home:
             if use_int:
-                uid = len(age_by_uid)
+                uid = len(age_by_uid) + base_uid
             else:
                 uid = sc.uuid(length=id_len)
             age_by_uid[uid] = int(a)

@@ -1,11 +1,13 @@
 import numpy as np
 from behaviour import RegionalBehaviourModel
 
-params_ca = dict(name = 'toronto', n=20000, com_contacts=20) # large city
-params_cb = dict(name = 'miss', n=10000, com_contacts=10) # medium city
-params_cc = dict(name = 'milton', n=5000,  com_contacts=10) # small city
-pop_mod = RegionalBehaviourModel(None, *(params_ca, params_cb, params_cc))
+params_ca = dict(name = 'toronto', n=20000, com_contacts=20, rand_seed=1) # large city
+params_cb = dict(name = 'miss', n=10000, com_contacts=10, rand_seed=1) # medium city
+params_cc = dict(name = 'milton', n=5000,  com_contacts=10, rand_seed=1) # small city
+pop_mod = RegionalBehaviourModel(None, None, *(params_ca, params_cb, params_cc))
+fname = '/home/andrew/dev/wble_proj/behaviour_module/tests/mr_pop_no_bl_shift.pop'
 
+pop_mod.save(fname)
 # Test the inter-regional community mixing. 
 # Test the total # contacts/city is correct. 
 
