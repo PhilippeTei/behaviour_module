@@ -3,7 +3,7 @@ import sciris as sc
 from behaviour import RegionalBehaviourModel
 
 """
-The code fails here, but that's because my previous "pop_truth" was buggy; it essentially simulated all work and family contacts being in city 1.
+The assertion fails here, but that's because my previous "pop_truth" was buggy; it essentially simulated all work and family contacts being in city 1.
 """
 
 params_ca = dict(name = 'toronto', n=20000, com_contacts=20, rand_seed=1) # large city
@@ -23,5 +23,3 @@ assert len(pop_truth) == len(pop_mod)
 for uid in range(len(pop_truth)):
     for layer in ['H','S','W']:
         assert np.array_equal(pop_mod[uid]['contacts'][layer], pop_truth[uid]['contacts'][layer])
-
-## What are the implications for Covasim?

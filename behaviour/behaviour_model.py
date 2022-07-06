@@ -239,11 +239,15 @@ class BehaviourModel(sc.prettyobj):
     def make_home_contacts(self):
         self.popdict = spcnx.make_home_contacts(self, self.structs, self.pars, self.popdict)
     
-    def make_school_contacts(self):
-        self.popdict = spcnx.make_school_contacts(self, self.structs, self.pars, self.popdict)
+    def make_school_contacts(self, popdict=None):
+        if popdict == None:
+            popdict = self.popdict
+        popdict = spcnx.make_school_contacts(self, self.structs, self.pars, popdict) # Note: this updates popdict at the source.
 
-    def make_work_contacts(self):
-        self.popdict = spcnx.make_work_contacts(self, self.structs, self.pars, self.popdict)
+    def make_work_contacts(self, popdict=None):
+        if popdict == None:
+            popdict = self.popdict
+        popdict = spcnx.make_work_contacts(self, self.structs, self.pars, popdict)
 
     def make_comm_contacts(self):
         self.popdict = spcnx.make_community_contacts(self, self.structs, self.pars, self.popdict)
@@ -533,7 +537,20 @@ class BehaviourModel(sc.prettyobj):
             school_mixing_type_dic = sc.mergedicts(dict.fromkeys(school_types, 'random'), school_mixing_type_dic)  # if the dictionary given doesn't specify the mixing type for an expected school type, set the mixing type for that school type to random by default
         return school_mixing_type_dic
 
-    def make_structures(self):
+    def distribute_workers_after_make_structures(self):
+        """
+        MUST BE RUN AFTER make_structures(distribute_workers=False). 
+        """
+        # Distribute them to your layers. Staff the LTCF's and schools, divvy the rest into workplaces.
+        teacher_uid_lists, non_teaching_staff_uid_lists, workplace_uid_lists, facilities_staff_uid_lists = self.distribute_workers(self.pars, self.structs.student_age_lists, self.structs.student_uid_lists, self.work_structs.employment_rates, self.work_structs.workers_by_age_to_assign_count, 
+            self.work_structs.potential_worker_uids, self.work_structs.potential_worker_uids_by_age, self.work_structs.potential_worker_ages_left_count, self.structs.facilities, self.structs.facilities_uid_lists, self.structs.age_by_uid)
+
+        self.structs.teacher_uid_lists = teacher_uid_lists
+        self.structs.non_teaching_staff_uid_lists = non_teaching_staff_uid_lists
+        self.structs.workplace_uid_lists = workplace_uid_lists
+        self.structs.facilities_staff_uid_lists = facilities_staff_uid_lists
+
+    def make_structures(self, distribute_workers=True):
         pars = self.pars
 
         # Generate an age count for the population --- this will get passed around to methods generating the different layers where people live: long term care facilities, households, agricultural living quarters, other group living arrangements
@@ -557,9 +574,19 @@ class BehaviourModel(sc.prettyobj):
         # Get pool of workers
         employment_rates, workers_by_age_to_assign_count, potential_worker_uids, potential_worker_uids_by_age, potential_worker_ages_left_count = self.get_valid_workers(pars, age_by_uid, student_uid_lists, facilities_by_uid_lists)
 
-        # Distribute them to your layers. Staff the LTCF's and schools, divvy the rest into workplaces.
-        teacher_uid_lists, non_teaching_staff_uid_lists, workplace_uid_lists, facilities_staff_uid_lists = self.distribute_workers(pars, student_age_lists, student_uid_lists, employment_rates, workers_by_age_to_assign_count, 
-            potential_worker_uids, potential_worker_uids_by_age, potential_worker_ages_left_count, facilities, facilities_by_uid_lists, age_by_uid)
+        if distribute_workers:
+            # Distribute them to your layers. Staff the LTCF's and schools, divvy the rest into workplaces.
+            teacher_uid_lists, non_teaching_staff_uid_lists, workplace_uid_lists, facilities_staff_uid_lists = self.distribute_workers(pars, student_age_lists, student_uid_lists, employment_rates, workers_by_age_to_assign_count, 
+                potential_worker_uids, potential_worker_uids_by_age, potential_worker_ages_left_count, facilities, facilities_by_uid_lists, age_by_uid)
+        else:
+            # Place the valid worker data structures into internal state. 
+            work_structs = sc.objdict()
+            work_structs.employment_rates = employment_rates
+            work_structs.workers_by_age_to_assign_count = workers_by_age_to_assign_count
+            work_structs.potential_worker_uids = potential_worker_uids
+            work_structs.potential_worker_uids_by_age = potential_worker_uids_by_age
+            work_structs.potential_worker_ages_left_count = potential_worker_ages_left_count
+            self.work_structs = work_structs
 
         # remove facilities from homes --- have already assigned each person a uid
         homes_by_uids = homes_by_uids[len(facilities_by_uid_lists):]
@@ -575,14 +602,18 @@ class BehaviourModel(sc.prettyobj):
         structs.homes_by_uids = homes_by_uids
         structs.homes_by_ages = homes
         structs.student_uid_lists = student_uid_lists
-        structs.teacher_uid_lists = teacher_uid_lists
-        structs.non_teaching_staff_uid_lists = non_teaching_staff_uid_lists
-        structs.workplace_uid_lists = workplace_uid_lists
+        structs.student_age_lists = student_age_lists
+        structs.facilities = facilities
         structs.facilities_uid_lists = facilities_by_uid_lists
-        structs.facilities_staff_uid_lists = facilities_staff_uid_lists
         structs.school_type_by_age = school_type_by_age
         structs.school_mixing_types = school_mixing_types
         structs.school_types = school_types
+
+        if distribute_workers:
+            structs.teacher_uid_lists = teacher_uid_lists
+            structs.non_teaching_staff_uid_lists = non_teaching_staff_uid_lists
+            structs.workplace_uid_lists = workplace_uid_lists
+            structs.facilities_staff_uid_lists = facilities_staff_uid_lists
 
         structs.workplaces_by_industry_codes = None # an unused param in make_contacts; by default None. 
 

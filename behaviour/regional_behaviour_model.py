@@ -2,6 +2,7 @@ from . import behaviour_model as bm
 import numpy as np
 import sciris as sc
 import covasim.utils as cvu
+import random
 
 class RegionalBehaviourModel(bm.BehaviourModel):
     def __init__(self, params_com_mixing = None, params_work_mixing = None, *args):
@@ -16,6 +17,7 @@ class RegionalBehaviourModel(bm.BehaviourModel):
         self.process_mixing_params()
 
         self.init_total_popdict_skele()
+        self.total_valid_workers = {} # a tracking var for debugging. 
 
         # Init cities
         self.regs = sc.objdict() # reg stands for region.
@@ -27,18 +29,115 @@ class RegionalBehaviourModel(bm.BehaviourModel):
         # Allocate people to their structures. TODO: coupled initialization for workplaces.
         for _, rsim in self.regs.items():
             rsim.load_pars_and_data()
-            rsim.make_structures()
+            rsim.make_structures(distribute_workers=False)
+        
+        self.mix_workers() # Using the workplace mixing parameters. 
+        
+        for _, rsim in self.regs.items():
+            rsim.distribute_workers_after_make_structures()
         
         # Make connections. 
         for _, rsim in self.regs.items():
             rsim.init_contact_structure()
             rsim.make_home_contacts()
-            rsim.make_school_contacts()
-            rsim.make_work_contacts()
+            rsim.make_school_contacts(self.total_popdict)
+            rsim.make_work_contacts(self.total_popdict)
+            self.completed_layers += ["S","W"] # these contact layers directly written to. Don't update in aggregate_regions(). 
         
         self.make_mixed_community_contacts()
 
         self.aggregate_regions() # make a popdict usable by covasim.
+
+    def mix_workers(self):
+        """
+        A note on the data structures: 
+        self.reg[reg_name].work_structs stores all the working variables for this workplace initialization. 
+        Within here, two similar data structures are:
+        potential_worker_ages_left_count, which is the total *valid* working population. (Not a student, LTCF resident)
+        workers_by_age_to_assign_count, which is the same as above but scaled down by the employment rate. 
+        """
+        n_leaving = {}
+        uids_leaving = {}
+        going_to_coming_from = {} # This structure needs to be initialized. 
+
+        reg_list = list(self.regs.keys())
+
+        # Initialize data structure. 
+        for reg in reg_list:
+            going_to_coming_from[reg] = {}
+            oregs = list(reg_list)
+            oregs.remove(reg)
+            for oreg in oregs:
+                going_to_coming_from[reg][oreg] = [] # will be populated with uids.
+
+        i_reg_par = 0
+
+        for reg_name in self.params_work_mixing:
+            # Calculate the number of people leaving each region. 
+            reg_vars = self.regs[reg_name].work_structs 
+            total_valid_workers = 0
+            for age in reg_vars.workers_by_age_to_assign_count:
+                total_valid_workers += reg_vars.workers_by_age_to_assign_count[age]
+
+            self.total_valid_workers[reg_name] = total_valid_workers
+            cur_n_leaving = total_valid_workers*self.params_work_mixing[reg_name]["leaving"]
+            n_leaving[reg_name] = np.floor(cur_n_leaving)
+
+            # Draw that number of people.
+            
+            # Detail: we need to choose a subset of the total workers to sample from, to reflect the distribution in the employment-rate-adjusted. 
+            uids_to_draw_from = []
+            for age in reg_vars.workers_by_age_to_assign_count:
+                if age >= 15: # potential_workers_ages_left_count isn't defined for n < 15, because all those values are zero. 
+                    to_assign = reg_vars.workers_by_age_to_assign_count[age]
+                    num_workers = reg_vars.potential_worker_ages_left_count[age]
+                    inds = cvu.choose(max_n=num_workers, n=to_assign)
+                    age_draw_from = [reg_vars.potential_worker_uids_by_age[age][i] for i in inds]
+                    uids_to_draw_from += age_draw_from
+
+            inds_uids_leaving = cvu.choose(max_n=total_valid_workers, n=cur_n_leaving)
+            uids_leaving[reg_name] = [uids_to_draw_from[i] for i in inds_uids_leaving]
+            i_reg_par += 1
+
+        # Assign who's going where.
+        for src_reg in uids_leaving:
+            other_regs = list(reg_list)
+            other_regs.remove(src_reg)
+            
+            i_oreg = 0 # index of the current other region.
+            n_alloc = 0 # the number of uids that will be going elsewhere allocated already to other regions. 
+            for dest in other_regs:
+                # For the last region, alloc the remainder.
+                if i_oreg == len(other_regs)-1:
+                    going_to_coming_from[dest][src_reg] = uids_leaving[src_reg][n_alloc:]
+                else:
+                    n2thisreg = int(np.floor(self.params_work_mixing[src_reg]["dests"][dest] * n_leaving[src_reg]))
+                    going_to_coming_from[dest][src_reg] = uids_leaving[src_reg][n_alloc:n_alloc+n2thisreg]
+                    n_alloc += n2thisreg
+
+                i_oreg += 1
+
+        # Update the age brackets. Don't update the employment rates - they've already fulfilled their uses.
+        for dest in going_to_coming_from:
+            for src in going_to_coming_from[dest]:
+                cur_uid_list = going_to_coming_from[dest][src]
+                for uid in cur_uid_list:
+                    # Update the source work_structs variables. 
+                    age = self.regs[src].work_structs.potential_worker_uids.pop(uid)
+                    self.regs[src].work_structs.potential_worker_uids_by_age[age].remove(uid)
+                    self.regs[src].work_structs.potential_worker_ages_left_count[age] -= 1
+                    self.regs[src].work_structs.workers_by_age_to_assign_count[age] -= 1
+                    
+                    # Update the destination work_structs variables. 
+                    self.regs[dest].work_structs.potential_worker_uids[uid] = age
+                    self.regs[dest].work_structs.potential_worker_uids_by_age[age].append(uid)
+                    self.regs[dest].work_structs.potential_worker_ages_left_count[age] += 1
+                    self.regs[dest].work_structs.workers_by_age_to_assign_count[age] += 1
+        
+        # Now shuffle the workers within each of the age brackets. 
+        for reg_name in self.regs:
+            for age in self.regs[reg_name].work_structs.potential_worker_uids_by_age:
+                random.shuffle(self.regs[reg_name].work_structs.potential_worker_uids_by_age[age])            
 
     def process_mixing_params(self):
         # first, community mixing. We assume there's always inter-community movement. 

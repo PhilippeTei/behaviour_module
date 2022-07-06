@@ -14,3 +14,11 @@ params_work_mixing = dict(toronto = {"leaving":0.05, "dests":dests_a},
                           milton =  {"leaving":0.3, "dests":dests_c})
 
 pop_mod = RegionalBehaviourModel(None, params_work_mixing, *(params_ca, params_cb, params_cc))
+
+"""
+## Tests. ##
+- Structures: Plot workplace ID vs # mobility workers in the company. 
+    - Implement global workplace ID; do this for all regions.
+- Structures: Re-create the matrix.
+- Contacts: Disable inter-community. Check no spread. Enable employment. Ensure spread.
+"""

@@ -64,34 +64,89 @@ Processing:
 2. get workers. alloc to schools, ltcfs, work.
 3. build package for connection-building. 
 
+for each region: 
+    # pass all the objects around by reference and directly modify them
+    work_structures[region] = valid_workers = get_valid_workers()
 
-structures: simply modify workers_by_age_to_assign_count. 
-    - Requires global uid's.
+    # choose to donate some workers. 
+    nw2d = get_nw2d(params_work_mixing[region]) # number of workers to donate. 
+    # get list of uids to donate. Get a pool of outgoing mobility workers per city.
+    mobility_workers[region] = sample_mobility_workers(work_structures, nw2d)
+    
+# Now for each region, allocate the folks. Using the script. 
+for each region:
+    script = make_script(mixing_params[region]) # looks like 000111020121010101001
+The script idea is ru b/c it requires modifying each distribution function separately. Let's modify the data structures.
 
-valid_workers = get_valid_workers()
+// Looking at assign_rest_of_workers:
+- keep total counter or pop from the script. 
+- reference individuals must be native. 
+- for each input variable, set them by reference to work_structures[region].*
 
-per_city:
-    to_donate_uid_lists[city] = pop_donated_workers(workplace_mixing_pars) # Also removes them.
+## Tests. ##
+- Structures: Plot workplace ID vs # mobility workers in the company. 
+    - Implement global workplace ID; do this for all regions.
+- Structures: Re-create the matrix.
+- Contacts: Disable inter-community. Check no spread. Enable employment. Ensure spread.
 
-incoming_uid_lists = generate_incoming_uid_lists(to_donate_uid_lists)
+#### DATA STRUCTURES: ####
 
-per_city:
-    valid_workers = update_valid_workers(incoming_uid_lists[city])
-
-DATA STRUCTURES:
-Say miss has uids btwn 1000 and 2000. Maybe it's time to transition UID's to global sooner.
-incoming_uid_lists = {
-    "miss": [0] // People coming into mississauga for work.
-    "milton": ...
+n_leaving = {
+    "miss": 4000,
+    "toronto": 500,
+    "milton": 1020
 }
 
-to_donate = {
-    "miss": [110, 3521, 5102, 4, 391]
-    "milton": [38, 125, 452, 6844]
+uids_leaving = {
+    "miss": [1,5,7]
+    "toronto: [11,24,16,15],
+    ...
 }
+
+going_to_coming_from = {
+    "miss": 
+    {
+        "toronto": [11,15,16],
+        "milton": [30,31,33],
+        ...},
+     "toronto":
+     {
+        "miss": [...],
+        "milton":[...],
+        ...
+     },
+     ...
+}
+
+potential_worker_uids_by_age = {
+    0: [...],
+    1: [...],
+    ...
+}
+
+dests_a = {'miss':0.6, 'milton':0.4}
+dests_b = {'toronto':0.9, 'milton':0.1}
+dests_c = {'toronto':0.9, 'miss': 0.1}
+
+params_work_mixing = dict(toronto = {"leaving":0.05, "dests":dests_a},
+                          miss =    {"leaving":0.4, "dests":dests_b},
+                          milton =  {"leaving":0.3, "dests":dests_c})
+
+__ work_structs variables to update __
+workers_by_age_to_assign_count: has all ages. o.w. same as below. 
+potential_workers_ages_left_count: only contains ages 15 to 100, inclusive. 
+-[C] potential_worker_uids: dict of uid:age. 
+-[C] potential_worker_uids_by_age: {age:[uids]}
+
+employment_rates: Don't need to update.
+Ages 16 to 100, inclusive. This loaded from census data.
+- only effects assign_teachers_to_schools()
+    - where it's not actually used. 
 
 ## Questions to resolve ##
-- How to also pass ages? Is there any worker info other than ages to pass?
+- How to count the number of people for the script?
+    - count number of people left at this stage?
+- Is it an ok assumption to only have as migrant workers those not at schools/ltcf's? 
 
 ## Making Contact Code ##
 contacts: the issue is we do popdict["foreign_uid"].workplace_contacts = [], but "foreign_uid" doesn't exist yet. 
