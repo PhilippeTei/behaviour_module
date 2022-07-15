@@ -40,6 +40,13 @@ default_data = {
         'sheet_name': 'United States of America',
         'nbrackets': 20,
     },
+    'canada': {
+        'country_location': 'canada',
+        'state_location': '',
+        'location': '',
+        'sheet_name': 'Canada',
+        'nbrackets': 20,
+    }
 }
 
 

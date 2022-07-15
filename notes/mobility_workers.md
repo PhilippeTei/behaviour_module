@@ -133,6 +133,7 @@ params_work_mixing = dict(toronto = {"leaving":0.05, "dests":dests_a},
                           milton =  {"leaving":0.3, "dests":dests_c})
 
 __ work_structs variables to update __
+
 workers_by_age_to_assign_count: has all ages. o.w. same as below. 
 potential_workers_ages_left_count: only contains ages 15 to 100, inclusive. 
 -[C] potential_worker_uids: dict of uid:age. 

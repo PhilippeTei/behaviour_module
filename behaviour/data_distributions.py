@@ -13,7 +13,8 @@ from . import config as cfg
 from . import defaults
 from . import logger
 from . import data
-
+from . import utils
+import pandas as pd
 
 def get_relative_path(datadir):
     """
@@ -406,6 +407,89 @@ def get_census_age_brackets(datadir=None, location=None, state_location=None, co
         age_max = int(dist[1])
         age_brackets[bracket_index] = np.arange(age_min, age_max + 1)
     return age_brackets
+
+def get_sw_params(datadir, location, state_location, country_location, use_default=False, dist_sw_probabilstically=False):
+    """
+    Load the smartwatch distribution and performance related parameters from country.json
+    Return a dictionary of the parameters. 
+    For the probability parameters of vector form, we interpolate such that it's compatible with other probability vectors. 
+    """
+
+    sw_params = sc.objdict()
+    location_data = load_location(location, state_location, country_location)
+    income_bracs = location_data.sw_income_bracs
+    age_bracs = location_data.sw_age_bracs
+    p_w_given_i = location_data.p_w_given_i
+    p_w_given_a = location_data.p_w_given_a
+
+    if dist_sw_probabilstically:
+        # We want to increase the resolution for incomes to every thousand, ages to every 1. 
+        full_incomes = np.arange(0, income_bracs[-1] + 1000, 1000) # Add 1k to include max_inc. 
+        full_ages = np.arange(0, age_bracs[-1] + 1)
+
+        p_w_given_i_interp = utils.stuff_brackets_1d(income_bracs, p_w_given_i, full_incomes)
+        p_w_given_a_interp = utils.stuff_brackets_1d(age_bracs, p_w_given_a, full_ages)
+
+        sw_params.income_bracs = full_incomes
+        sw_params.age_bracs = full_ages
+        sw_params.p_w_given_i = p_w_given_i_interp
+        sw_params.p_w_given_a = p_w_given_a_interp
+    else:
+        sw_params.income_bracs = list(income_bracs)
+        sw_params.age_bracs = list(age_bracs)
+        sw_params.p_w_given_i = list(p_w_given_i)
+        sw_params.p_w_given_a = list(p_w_given_a)
+
+    sw_params.p_w = location_data.p_w
+    sw_params.dist_sw_probabilstically = dist_sw_probabilstically
+
+    return sw_params
+
+def get_age_income_dist(datadir, location, state_location, country_location, use_default=False):
+    """
+    Get the age income distribution for a location.
+    Include use_default just for compatibility with the function call. 
+    """
+    base_dir = get_relative_path(datadir)
+    file_path = os.path.join(base_dir, 'income_age_dists')
+    # If state_location or country_location are None, set them to "". 
+    if state_location is None:
+        state_location = ""
+    if location is None:
+        location = ""
+    fname = calculate_location_filename(location, state_location, country_location)
+    file_path = os.path.join(file_path, fname)
+
+    # Load data 
+    data = pd.read_csv(file_path + '.csv')
+
+    # Return values as a 2d array. 
+    return data.values
+    #### 
+
+def process_age_income_dist(age_income_dist_raw, location, state_location, country_location):
+    """
+    Process the age income distribution for a location.
+    Rescale it to a higher resolution, so we can do probability math on it. 
+    """
+    # Load the location object for this location. 
+    location_data = load_location(location, state_location, country_location)
+    cibs = location_data.census_income_bracs
+    cabs = location_data.census_age_bracs
+
+    max_inc = cibs[-1]
+    max_age = cabs[-1]
+
+    # If max_inc isn't divisible by 1000, raise. 
+    if max_inc % 1000 != 0:
+        raise ValueError('Max income must be divisible by 1000.')
+    # Make a new income list incrementing by 1k up to max_inc. 
+    full_incomes = np.arange(0, max_inc + 1000, 1000) # Add 1k to include max_inc. 
+    # Make a new age list incrementing by 1 up to max_age.
+    full_ages = np.arange(0, max_age + 1)
+
+    A_I_joint = utils.rescale_2d_pmf(cabs, cibs, age_income_dist_raw, full_ages, full_incomes)
+    return A_I_joint, full_ages, full_incomes
 
 # TODO: still open question on how to handle these.
 def get_contact_matrix(datadir, setting_code, sheet_name=None, file_path=None, delimiter=' ', header=None):

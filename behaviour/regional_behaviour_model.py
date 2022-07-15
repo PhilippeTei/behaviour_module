@@ -139,6 +139,9 @@ class RegionalBehaviourModel(bm.BehaviourModel):
             for age in self.regs[reg_name].work_structs.potential_worker_uids_by_age:
                 random.shuffle(self.regs[reg_name].work_structs.potential_worker_uids_by_age[age])            
 
+        # DEBUG
+        # self.save('/home/andrew/dev/wble_proj/behaviour_module/tests/mobility_workers_debug.pop')
+
     def process_mixing_params(self):
         # first, community mixing. We assume there's always inter-community movement. 
 

@@ -121,7 +121,7 @@ def make_home_contacts(pop, structs, pars, popdict):
             popdict[uid]['contacts']['H'] = set(household)
             popdict[uid]['contacts']['H'].remove(uid)
             popdict[uid]['hhid'] = nh
-            popdict[uid]['hhincome'] = structs.fam_income_by_uid[uid]
+            # popdict[uid]['hhincome'] = structs.fam_income_by_uid[uid]
 
     return popdict
 
@@ -288,7 +288,8 @@ def init_popdict_skele(structs, sexes):
             popdict[uid]['ltcf_res'] = None
             popdict[uid]['ltcf_staff'] = None
         popdict[uid]['hhid'] = None
-        popdict[uid]['hhincome'] = None
+        popdict[uid]['hhincome'] = structs.fam_income_by_uid[uid]
+        popdict[uid]['has_watch'] = structs.smartwatch_ownership_by_uid[uid]
         popdict[uid]['scid'] = None
         popdict[uid]['sc_student'] = None
         popdict[uid]['sc_teacher'] = None

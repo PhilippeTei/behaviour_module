@@ -339,6 +339,15 @@ class BehaviourModel(sc.prettyobj):
         pars.cm_age_by_brackets = spb.get_age_by_brackets(pars.cm_age_brackets)
         self.cm_age_by_brackets = pars.cm_age_by_brackets
 
+        # Load the age-income table. 
+        age_income_raw = spdata.get_age_income_dist(**pars.loc_pars)
+
+        # Process it. (Increase the resolution). ai stands for age-income table. 
+        pars.age_income_dist, pars.ai_age_bracs, pars.ai_inc_bracs = spdata.process_age_income_dist(age_income_raw, pars.location, pars.state_location, pars.country_location)
+
+        # Load data for distributing smartwatches. 
+        pars.sw_params = spdata.get_sw_params(**pars.loc_pars, dist_sw_probabilstically=self.input_pars.dist_sw_probabilstically)
+
         self.pars = pars
 
     def generate_households(self, pars, 
@@ -434,7 +443,9 @@ class BehaviourModel(sc.prettyobj):
 
     def distribute_workers(self, pars, student_age_lists, student_uid_lists, employment_rates, 
         workers_by_age_to_assign_count, potential_worker_uids, potential_worker_uids_by_age, potential_worker_ages_left_count, facilities, facilities_by_uid_lists, age_by_uid):
-            
+        
+        # DEBUG
+        # print("Beginning Workers: {}".format(len(potential_worker_uids)))
         # Assign teachers and update school lists
         teacher_age_lists, teacher_uid_lists, potential_worker_uids, potential_worker_uids_by_age, workers_by_age_to_assign_count = spsch.assign_teachers_to_schools(student_age_lists,
                                                                                                                                                                      student_uid_lists,
@@ -491,6 +502,8 @@ class BehaviourModel(sc.prettyobj):
                                                                                                                                                                    pars.cm_age_by_brackets,
                                                                                                                                                                    pars.contact_matrices)
 
+        # DEBUG
+        # print("REMAINING WORKERS: {}".format(len(potential_worker_uids)))
         return teacher_uid_lists, non_teaching_staff_uid_lists, workplace_uid_lists, facilities_staff_uid_lists
 
     def consolidate_structures(self, structs):
@@ -568,6 +581,9 @@ class BehaviourModel(sc.prettyobj):
         # Allocate incomes to the households.
         fam_income_by_uid = spc.allocate_household_incomes(pars, age_by_uid, homes_by_uids, homes)
 
+        # Allocate smartwatches to the people. This is a function of income and age, so it needs to be done after allocate_household_incomes.
+        smartwatch_ownership_by_uid = spc.allocate_smartwatches(pars, age_by_uid, fam_income_by_uid) 
+
         # Generate Schools and put students into them. (Put teachers in later)
         student_uid_lists, student_age_lists, school_type_by_age, school_types = self.generate_schools(pars, n_nonltcf, age_by_uid, homes_by_uids)
 
@@ -599,6 +615,7 @@ class BehaviourModel(sc.prettyobj):
         structs = sc.objdict()
         structs.age_by_uid = age_by_uid
         structs.fam_income_by_uid = fam_income_by_uid
+        structs.smartwatch_ownership_by_uid = smartwatch_ownership_by_uid
         structs.homes_by_uids = homes_by_uids
         structs.homes_by_ages = homes
         structs.student_uid_lists = student_uid_lists
