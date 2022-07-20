@@ -435,7 +435,7 @@ def get_sw_params(datadir, location, state_location, country_location, use_defau
         sw_params.p_w_given_i = p_w_given_i_interp
         sw_params.p_w_given_a = p_w_given_a_interp
     else:
-        sw_params.income_bracs = list(income_bracs)
+        sw_params.income_bracs = list(income_bracs)  # This casting is required or else behaviour_module.save breaks.
         sw_params.age_bracs = list(age_bracs)
         sw_params.p_w_given_i = list(p_w_given_i)
         sw_params.p_w_given_a = list(p_w_given_a)

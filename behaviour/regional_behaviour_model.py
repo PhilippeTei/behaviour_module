@@ -5,8 +5,13 @@ import covasim.utils as cvu
 import random
 
 class RegionalBehaviourModel(bm.BehaviourModel):
-    def __init__(self, params_com_mixing = None, params_work_mixing = None, *args):
-
+    def __init__(self, com_mixing = True, work_mixing = True, params_com_mixing = None, params_work_mixing = None, all_reg_params = None):
+        """
+        Args:
+            com_mixing: Whether to use community mixing.
+            work_mixing: Whether to use workplace mixing.
+        """
+        args = all_reg_params
         self.completed_layers = []
         self.reg_pars = sc.dcp(args) # copy these args since we'll modify later
         self.augment_pars()
@@ -29,12 +34,15 @@ class RegionalBehaviourModel(bm.BehaviourModel):
         # Allocate people to their structures. TODO: coupled initialization for workplaces.
         for _, rsim in self.regs.items():
             rsim.load_pars_and_data()
-            rsim.make_structures(distribute_workers=False)
+            if work_mixing:
+                rsim.make_structures(distribute_workers = False)
+            else:
+                rsim.make_structures(distribute_workers = True) # Just distribute workers within the cities.
         
-        self.mix_workers() # Using the workplace mixing parameters. 
-        
-        for _, rsim in self.regs.items():
-            rsim.distribute_workers_after_make_structures()
+        if work_mixing:
+            self.mix_workers() # Using the workplace mixing parameters. 
+            for _, rsim in self.regs.items():
+                rsim.distribute_workers_after_make_structures()
         
         # Make connections. 
         for _, rsim in self.regs.items():
@@ -44,7 +52,8 @@ class RegionalBehaviourModel(bm.BehaviourModel):
             rsim.make_work_contacts(self.total_popdict)
             self.completed_layers += ["S","W"] # these contact layers directly written to. Don't update in aggregate_regions(). 
         
-        self.make_mixed_community_contacts()
+        if com_mixing:
+            self.make_mixed_community_contacts()
 
         self.aggregate_regions() # make a popdict usable by covasim.
 

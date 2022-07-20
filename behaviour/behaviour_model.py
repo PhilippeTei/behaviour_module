@@ -345,7 +345,7 @@ class BehaviourModel(sc.prettyobj):
         # Process it. (Increase the resolution). ai stands for age-income table. 
         pars.age_income_dist, pars.ai_age_bracs, pars.ai_inc_bracs = spdata.process_age_income_dist(age_income_raw, pars.location, pars.state_location, pars.country_location)
 
-        # Load data for distributing smartwatches. 
+        # Load data for distributing smartwatches. params_com_mixing
         pars.sw_params = spdata.get_sw_params(**pars.loc_pars, dist_sw_probabilstically=self.input_pars.dist_sw_probabilstically)
 
         self.pars = pars
