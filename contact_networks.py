@@ -9,7 +9,7 @@ import networkx as nx
 from . import data_distributions as spdata
 from . import schools as spsch
 from .config import logger as log, checkmem
-from covasim import utils as cvu
+from infection import utils as cvu
 
 def make_all_contacts(pop, structs, pars):
     """
@@ -269,7 +269,7 @@ def make_work_contacts(pop, structs, pars, popdict):
 
     return popdict
 
-def init_popdict_skele(structs, sexes):
+def init_popdict_skele(structs, sexes, init_incomes_and_watches):
     # Return population dictionary skeleton.
     popdict = {}
     use_ltcf=structs.facilities_uid_lists is not None
@@ -288,8 +288,9 @@ def init_popdict_skele(structs, sexes):
             popdict[uid]['ltcf_res'] = None
             popdict[uid]['ltcf_staff'] = None
         popdict[uid]['hhid'] = None
-        popdict[uid]['hhincome'] = structs.fam_income_by_uid[uid]
-        popdict[uid]['has_watch'] = structs.smartwatch_ownership_by_uid[uid]
+        if init_incomes_and_watches:
+            popdict[uid]['hhincome'] = structs.fam_income_by_uid[uid]
+            popdict[uid]['has_watch'] = structs.smartwatch_ownership_by_uid[uid]
         popdict[uid]['scid'] = None
         popdict[uid]['sc_student'] = None
         popdict[uid]['sc_teacher'] = None

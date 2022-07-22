@@ -1,7 +1,7 @@
 from . import behaviour_model as bm
 import numpy as np
 import sciris as sc
-import covasim.utils as cvu
+import infection.utils as cvu
 import random
 
 class RegionalBehaviourModel(bm.BehaviourModel):
@@ -11,6 +11,7 @@ class RegionalBehaviourModel(bm.BehaviourModel):
             com_mixing: Whether to use community mixing.
             work_mixing: Whether to use workplace mixing.
         """
+        print("Initializing regional behaviour model...")
         args = all_reg_params
         self.completed_layers = []
         self.reg_pars = sc.dcp(args) # copy these args since we'll modify later

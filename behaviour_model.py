@@ -81,7 +81,7 @@ class BehaviourModel(sc.prettyobj):
             network (dict): A dictionary of the full population with ages, connections, and other attributes.
         '''
         log.debug('Pop()')
-        print("BEHAVIOUR_MODULE")
+        print("Initializing Behaviour Module...")
         
         default_pars = spc.make_pars() # returns a sciris object dict. 
         pars = spc.update_pars(default_pars, pars)
@@ -234,7 +234,7 @@ class BehaviourModel(sc.prettyobj):
             sexes[uid] = sexes_list[i]
             i += 1
         
-        self.popdict = spcnx.init_popdict_skele(self.structs, sexes=sexes)
+        self.popdict = spcnx.init_popdict_skele(self.structs, sexes=sexes, init_incomes_and_watches = self.input_pars.init_incomes_and_watches)
 
     def make_home_contacts(self):
         self.popdict = spcnx.make_home_contacts(self, self.structs, self.pars, self.popdict)
@@ -338,15 +338,16 @@ class BehaviourModel(sc.prettyobj):
         self.cm_age_brackets = pars.cm_age_brackets
         pars.cm_age_by_brackets = spb.get_age_by_brackets(pars.cm_age_brackets)
         self.cm_age_by_brackets = pars.cm_age_by_brackets
+        
+        if self.input_pars.init_incomes_and_watches:
+            # Load the age-income table. 
+            age_income_raw = spdata.get_age_income_dist(**pars.loc_pars)
 
-        # Load the age-income table. 
-        age_income_raw = spdata.get_age_income_dist(**pars.loc_pars)
+            # Process it. (Increase the resolution). ai stands for age-income table. 
+            pars.age_income_dist, pars.ai_age_bracs, pars.ai_inc_bracs = spdata.process_age_income_dist(age_income_raw, pars.location, pars.state_location, pars.country_location)
 
-        # Process it. (Increase the resolution). ai stands for age-income table. 
-        pars.age_income_dist, pars.ai_age_bracs, pars.ai_inc_bracs = spdata.process_age_income_dist(age_income_raw, pars.location, pars.state_location, pars.country_location)
-
-        # Load data for distributing smartwatches. params_com_mixing
-        pars.sw_params = spdata.get_sw_params(**pars.loc_pars, dist_sw_probabilstically=self.input_pars.dist_sw_probabilstically)
+            # Load data for distributing smartwatches. params_com_mixing
+            pars.sw_params = spdata.get_sw_params(**pars.loc_pars, dist_sw_probabilstically=self.input_pars.dist_sw_probabilstically)
 
         self.pars = pars
 
@@ -578,11 +579,11 @@ class BehaviourModel(sc.prettyobj):
         # Generate Homes and place people into them. 
         age_by_uid, homes_by_uids, facilities_by_uid_lists, homes = self.generate_households(pars, n_nonltcf, ltcf_adjusted_age_dist, ages_left_to_assign, facilities)
         
-        # Allocate incomes to the households.
-        fam_income_by_uid = spc.allocate_household_incomes(pars, age_by_uid, homes_by_uids, homes)
-
-        # Allocate smartwatches to the people. This is a function of income and age, so it needs to be done after allocate_household_incomes.
-        smartwatch_ownership_by_uid = spc.allocate_smartwatches(pars, age_by_uid, fam_income_by_uid) 
+        if self.input_pars.init_incomes_and_watches:
+            # Allocate incomes to the households.
+            fam_income_by_uid = spc.allocate_household_incomes(pars, age_by_uid, homes_by_uids, homes)
+            # Allocate smartwatches to the people. This is a function of income and age, so it needs to be done after allocate_household_incomes.
+            smartwatch_ownership_by_uid = spc.allocate_smartwatches(pars, age_by_uid, fam_income_by_uid) 
 
         # Generate Schools and put students into them. (Put teachers in later)
         student_uid_lists, student_age_lists, school_type_by_age, school_types = self.generate_schools(pars, n_nonltcf, age_by_uid, homes_by_uids)
@@ -614,8 +615,9 @@ class BehaviourModel(sc.prettyobj):
         # Consolidate the structural assignments. 
         structs = sc.objdict()
         structs.age_by_uid = age_by_uid
-        structs.fam_income_by_uid = fam_income_by_uid
-        structs.smartwatch_ownership_by_uid = smartwatch_ownership_by_uid
+        if self.input_pars.init_incomes_and_watches:
+            structs.fam_income_by_uid = fam_income_by_uid
+            structs.smartwatch_ownership_by_uid = smartwatch_ownership_by_uid
         structs.homes_by_uids = homes_by_uids
         structs.homes_by_ages = homes
         structs.student_uid_lists = student_uid_lists

@@ -199,5 +199,6 @@ def make_pars():
             do_make=True,
             as_region = False,
             base_uid=0,
+            init_incomes_and_watches=True,
             dist_sw_probabilstically=False)
     return ret
