@@ -40,6 +40,7 @@ def get_nbrackets():
 def calculate_which_nbrackets_to_use(location_data, nbrackets=None):
     """
     Calculate the number of age brackets to use by default.
+    By default, use the greatest available number of brackets. (Ex: if provided are 20, 18, 16, use 20)
 
     Args:
         nbrackets (int): the number of age brackets to use
@@ -461,7 +462,7 @@ def get_age_income_dist(datadir, location, state_location, country_location, use
     file_path = os.path.join(file_path, fname)
 
     # Load data 
-    data = pd.read_csv(file_path + '.csv')
+    data = pd.read_csv(file_path + '.csv', header=None)
 
     # Return values as a 2d array. 
     return data.values

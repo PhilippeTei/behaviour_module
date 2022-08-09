@@ -157,7 +157,7 @@ class RegionalBehaviourModel(bm.BehaviourModel):
 
         if self.params_com_mixing == None:
             print("Community mixing parameters not given; initializing defaults...")
-            self.load_default_mixing_pars(len(self.reg_pars))
+            self.gen_default_comm_mixing(len(self.reg_pars))
         
         if self.params_work_mixing != None:
             # then, workplace mixing. Check all keys are normalized.
@@ -180,14 +180,14 @@ class RegionalBehaviourModel(bm.BehaviourModel):
             i += 1
             cur_offset += city_par_set['n']
 
-    def load_default_mixing_pars(self, num_cities):
+    def gen_default_comm_mixing(self, num_cities, come_from_cur = 0.8):
         """
-        Populate workplace and community mixing matricies. (mm)
+        Populate community inter-region mixing matricies. (mm)
+        come_from_cur is the diagonal terms. 
         """
 
         self.params_com_mixing = {}
-        come_from_cur = 0.8
-        come_from_others = 0.2
+        come_from_others = 1 - come_from_cur
         
         ret = (come_from_others/(num_cities-1))* \
         np.ones((num_cities, num_cities))
@@ -195,7 +195,7 @@ class RegionalBehaviourModel(bm.BehaviourModel):
         for i in range(ret.shape[0]):
             ret[i][i] = come_from_cur
 
-        mixing_layers = ["C", "W"]
+        mixing_layers = ["C"]
 
         for k in mixing_layers:
             self.params_com_mixing[k] = ret

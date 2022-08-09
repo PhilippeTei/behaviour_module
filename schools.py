@@ -1578,6 +1578,17 @@ def generate_school_sizes(school_size_distr_by_bracket, school_size_brackets, ui
     np.random.shuffle(school_sizes)
     return school_sizes
 
+def assert_correctness(uids_in_school_by_age, left_in_bracket, age_brackets):
+    """
+    Used for debugging the mismatch between the # students purportedly remaining in a bracket, and the uids per age group.
+    """
+    for brac in age_brackets:
+        left_in_brac = left_in_bracket[brac]
+        uids_in_brac_count = 0
+        for age in age_brackets[brac]:
+            uids_in_brac_count += len(uids_in_school_by_age[age])
+        
+        assert left_in_brac == uids_in_brac_count, "left_in_brac: %d, uids_in_brac_count: %d" % (left_in_brac, uids_in_brac_count)
 
 def send_students_to_school(school_sizes, uids_in_school, uids_in_school_by_age, ages_in_school_count, age_brackets, age_by_brackets, contact_matrices): 
     """
@@ -1608,9 +1619,16 @@ def send_students_to_school(school_sizes, uids_in_school, uids_in_school_by_age,
     school_types = []
 
     ages_in_school_distr = spb.norm_dic(ages_in_school_count)
-    left_in_bracket = spb.get_aggregate_ages(ages_in_school_count, age_by_brackets)
+    # left_in_bracket = spb.get_aggregate_ages(ages_in_school_count, age_by_brackets)
+    # DEBUG: write my own left in bracket function.
+    left_in_bracket = {}
+    for brac in age_brackets:
+        left_in_bracket[brac] = sum(ages_in_school_count[a] for a in age_brackets[brac])
 
+    
     for n, size in enumerate(school_sizes):
+        # assert_correctness(uids_in_school_by_age, left_in_bracket, age_brackets)
+
 
         if len(uids_in_school) == 0:  # no more students left to send to school!
             break
@@ -1628,7 +1646,7 @@ def send_students_to_school(school_sizes, uids_in_school, uids_in_school_by_age,
             if np.random.binomial(1, p=0.7):
 
                 aindex = spsamp.fast_choice(ages_in_school_distr.values())
-
+        # Choose a reference student for the whole school. 
         uid = uids_in_school_by_age[aindex][0]
         uids_in_school_by_age[aindex].remove(uid)
         uids_in_school.pop(uid, None)
@@ -1643,7 +1661,9 @@ def send_students_to_school(school_sizes, uids_in_school, uids_in_school_by_age,
         bindex = age_by_brackets[aindex]
         b_prob = contact_matrices['S'][bindex, :]
 
-        left_in_bracket[bindex] -= 1
+        left_in_bracket[bindex] -= 1 # Update the age bracket.
+
+        # assert_correctness(uids_in_school_by_age, left_in_bracket, age_brackets)
 
         # fewer students than school size so everyone else is in one school
         if len(uids_in_school) < size:
@@ -1658,11 +1678,12 @@ def send_students_to_school(school_sizes, uids_in_school, uids_in_school_by_age,
 
             log.debug(f"last school, size from distribution: {size}, size generated {len(new_school)}")
 
-        else:
+        else: # Draw brackets, then students from those brackets, until you've filled every school. 
             bi_min = max(0, bindex-1)
             bi_max = bindex + 1
 
             for i in range(1, size):
+
                 if len(uids_in_school) == 0:
                     break
 
@@ -1672,7 +1693,7 @@ def send_students_to_school(school_sizes, uids_in_school, uids_in_school_by_age,
 
                 bi = spsamp.sample_single_arr(b_prob)
 
-                while left_in_bracket[bi] == 0 or np.abs(bindex - bi) > 1:
+                while left_in_bracket[bi] == 0 or np.abs(bindex - bi) > 1: # Second conditional: ensure within 1 bracket of reference student. 
                     bi = spsamp.sample_single_arr(b_prob)
 
                 ai = spsamp.sample_from_range(ages_in_school_distr, age_brackets[bi][0], age_brackets[bi][-1])
@@ -1687,6 +1708,9 @@ def send_students_to_school(school_sizes, uids_in_school, uids_in_school_by_age,
                 ages_in_school_count[ai] -= 1
                 ages_in_school_distr = spb.norm_dic(ages_in_school_count)
                 left_in_bracket[bi] -= 1
+
+                # assert_correctness(uids_in_school_by_age, left_in_bracket, age_brackets)
+
 
         school_age_lists.append(new_school)
         school_uid_lists.append(new_school_uids)

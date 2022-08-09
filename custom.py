@@ -1,5 +1,6 @@
 import numpy as np
 import sciris as sc
+import random
 
 def group_uids_by_income_age_brackets(age_bracs, inc_bracs, age_by_uid, fam_income_by_uid):
     # Group UIDs by income and age brackets. 
@@ -35,6 +36,11 @@ def group_uids_by_income_age_brackets(age_bracs, inc_bracs, age_by_uid, fam_inco
 
         ppl_income_age[b_i][b_a].append(person)
     
+    # Now, shuffle each list. 
+    for b_i in ppl_income_age:
+        for b_a in ppl_income_age[b_i]:
+            random.shuffle(ppl_income_age[b_i][b_a])
+
     return ppl_income_age
 
 
