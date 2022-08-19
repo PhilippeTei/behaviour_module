@@ -20,6 +20,8 @@ def make_people(n=None, popdict=None, rand_seed=1, pop_type='synthpops', locatio
     Make the actual people for the simulation. Usually called via sim.initialize(),
     but can be called directly by the user.
 
+    Called by covasim by make_behaviour_module(). 
+
     Args:
         n        (int)  : the number of people to create
         popdict  (dict) : if supplied, use this population dictionary instead of generating a new one
@@ -70,7 +72,7 @@ def make_people(n=None, popdict=None, rand_seed=1, pop_type='synthpops', locatio
             raise ValueError
 
     # Actually create the people
-    people = spp.People(pars, uid=popdict['uid'], age=popdict['age'], sex=popdict['sex'], contacts=popdict['contacts']) # List for storing the people
+    people = spp.People(pars, uid=popdict['uid'], age=popdict['age'], sex=popdict['sex'], contacts=popdict['contacts'], has_watch=popdict['has_watch']) # List for storing the people
 
     average_age = sum(popdict['age']/pop_size)
     sc.printv(f'Created {pop_size} people, average age {average_age:0.2f} years', 2, verbose)
@@ -386,10 +388,11 @@ def parse_behaviour_module(population, layer_mapping=None):
 
     # Create the basic lists
     pop_size = len(population)
-    uids, ages, sexes, contacts = [], [], [], []
+    uids, ages, sexes, have_watches, contacts = [], [], [], [], []
     for uid,person in population.items():
         uids.append(uid)
         ages.append(person['age'])
+        have_watches.append(person['has_watch'])
         sexes.append(person['sex'])
 
     # Replace contact UIDs with ints
@@ -418,6 +421,7 @@ def parse_behaviour_module(population, layer_mapping=None):
     popdict['uid']        = np.array(list(uid_mapping.values()), dtype=spu.default_int)
     popdict['age']        = np.array(ages)
     popdict['sex']        = np.array(sexes)
+    popdict['has_watch']  = np.array(have_watches)
     popdict['contacts']   = sc.dcp(contacts)
     popdict['layer_keys'] = list(layer_mapping.values())
 
