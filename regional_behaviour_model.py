@@ -10,6 +10,7 @@ class RegionalBehaviourModel(bm.BehaviourModel):
         Args:
             com_mixing: Whether to use community mixing.
             work_mixing: Whether to use workplace mixing.
+            params_com_mixing: Community mixing parameters; as a num_regions x num_regions matrix.
         """
         print("Initializing regional behaviour model...")
         args = all_reg_params
@@ -19,7 +20,7 @@ class RegionalBehaviourModel(bm.BehaviourModel):
         args = sc.dcp(self.reg_pars) # reflect these augmentations on args. 
         
         self.params_work_mixing = params_work_mixing
-        self.params_com_mixing = params_com_mixing
+        self.params_com_mixing = dict(C = params_com_mixing)
         self.process_mixing_params()
 
         self.init_total_popdict_skele()
@@ -183,7 +184,7 @@ class RegionalBehaviourModel(bm.BehaviourModel):
     def gen_default_comm_mixing(self, num_cities, come_from_cur = 0.8):
         """
         Populate community inter-region mixing matricies. (mm)
-        come_from_cur is the diagonal terms. 
+        come_from_cur is the diagonal terms.
         """
 
         self.params_com_mixing = {}
