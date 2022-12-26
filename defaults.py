@@ -46,6 +46,13 @@ default_data = {
         'location': '',
         'sheet_name': 'Canada',
         'nbrackets': 20,
+    },
+    'dummy': {
+        'country_location': 'dummy',
+        'state_location': '',
+        'location': '',
+        'sheet_name': 'United Kingdom of Great Britain',
+        'nbrackets': 20,
     }
 }
 
