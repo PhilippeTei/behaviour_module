@@ -53,7 +53,28 @@ default_data = {
         'location': '',
         'sheet_name': 'United Kingdom of Great Britain',
         'nbrackets': 20,
-    }
+    },
+    'england': {
+        'country_location': 'england',
+        'state_location': '',
+        'location': '',
+        'sheet_name': 'United Kingdom of Great Britain',
+        'nbrackets': 18,
+    },
+    'england_lite': {
+        'country_location': 'england_lite',
+        'state_location': '',
+        'location': '',
+        'sheet_name': 'United Kingdom of Great Britain',
+        'nbrackets': 18,
+    },
+    'Nepal_dummy': {
+        'country_location': 'Nepal_dummy',
+        'state_location': '',
+        'location': '',
+        'sheet_name': 'Nepal',
+        'nbrackets': 16,
+    },
 }
 
 

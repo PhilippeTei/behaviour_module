@@ -245,6 +245,7 @@ class RegionalBehaviourModel(bm.BehaviourModel):
         Make random community contacts, with mixing specified by the mixing matrix
         Result: self.total_popdict[*]['contacts']['C'] is populated, where * is all UIDs accross all regions.
         Refactoring TODO: discard self.reg_pars and store that information in the actual region objects. 
+        See documentation here: https://docs.google.com/document/d/1RpVdywIJTsTor14m1gnoGswKr_nPsWRJoeYRK0HdHhE/edit
         """
         n_regs = len(self.reg_pars)
         i_cur_reg = 0

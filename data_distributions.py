@@ -143,8 +143,8 @@ def load_location(specific_location, state_location, country_location, revert_to
     try:
         location_object = data.load_location_from_filepath(location_filepath)
         logger.debug(f"Loaded (location, state_location, country_location) = "
-                     f"({specific_location}, {state_location}, {country_location}) "
-                     f"from [{location_filepath}]")
+                        f"({specific_location}, {state_location}, {country_location}) "
+                        f"from [{location_filepath}]")
         return location_object
     except:
         logger.warn(f"Failed to load location [{specific_location}], "
