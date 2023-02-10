@@ -57,7 +57,7 @@ class RegionalBehaviourModel(bm.BehaviourModel):
         if com_mixing:
             self.make_mixed_community_contacts()
 
-        self.aggregate_regions() # make a popdict usable by covasim.
+        self.aggregate_regions() # make a popdict usable by covasim. Also make workplaces. 
 
     def mix_workers(self):
         """
@@ -340,6 +340,21 @@ class RegionalBehaviourModel(bm.BehaviourModel):
                     else:
                         self.total_popdict[uid][key] = val
         self.completed_layers = list(self.total_popdict[0]['contacts'].keys()) # Done all layers.
+        
+        # Workplaces: Lists of UIDS for each workplaces accross the different regions. 
+        self.workplaces = []
+        for k_reg in self.regs:
+            reg = self.regs[k_reg]
+            self.workplaces += (reg.structs.workplace_uid_lists)
+            
+        # Convert to list of dictionaries. 
+        workplaces = []
+        for i, uid_list in enumerate(self.workplaces):
+            workplaces.append({'member_uids': uid_list, 'wpid': i})
+        self.workplaces = workplaces
+
+        self.n_workplaces = len(self.workplaces)
+
         return
 
 if __name__ == "__main__":
