@@ -1,8 +1,8 @@
-"""
+﻿"""
 Some miscellaneous tools. 
 """
 import numpy as np
-
+import numba as nb
 def stuff_brackets_1d(bracs, vals, targ_bracs):
     """
     bracs: coarse brackets. 
@@ -67,3 +67,76 @@ def rescale_2d_pmf(row_bracs, col_bracs, pmf, targ_row_bracs, targ_col_bracs):
             # Scale the value by the area.
             A_I_joint_scaled[n_arr_age_start:n_arr_age_end, n_arr_inc_start:n_arr_inc_end] = cur_val / area
     return A_I_joint_scaled/np.sum(A_I_joint_scaled, axis=(0,1))
+
+
+@nb.njit() # Numba hugely increases performance
+def n_poisson(rate, n):
+    '''
+    An array of Poisson trials.
+
+    Args:
+        rate (float): the rate of the Poisson process (mean)
+        n (int): number of trials
+
+    **Example**::
+
+        outcomes = cv.n_poisson(100, 20) # 20 Poisson trials with mean 100
+    '''
+    return np.random.poisson(rate, n)
+
+
+def n_neg_binomial(rate, dispersion, n, step=1): # Numba not used due to incompatible implementation
+    '''
+    An array of negative binomial trials. See cv.sample() for more explanation.
+
+    Args:
+        rate (float): the rate of the process (mean, same as Poisson)
+        dispersion (float):  dispersion parameter; lower is more dispersion, i.e. 0 = infinite, ∞ = Poisson
+        n (int): number of trials
+        step (float): the step size to use if non-integer outputs are desired
+
+    **Example**::
+
+        outcomes = cv.n_neg_binomial(100, 1, 50) # 50 negative binomial trials with mean 100 and dispersion roughly equal to mean (large-mean limit)
+        outcomes = cv.n_neg_binomial(1, 100, 20) # 20 negative binomial trials with mean 1 and dispersion still roughly equal to mean (approximately Poisson)
+    '''
+    nbn_n = dispersion
+    nbn_p = dispersion/(rate/step + dispersion)
+    samples = np.random.negative_binomial(n=nbn_n, p=nbn_p, size=n)*step
+    return samples
+
+
+
+
+
+@nb.njit() # Numba hugely increases performance
+def choose(max_n, n):
+    '''
+    Choose a subset of items (e.g., people) without replacement.
+
+    Args:
+        max_n (int): the total number of items
+        n (int): the number of items to choose
+
+    **Example**::
+
+        choices = cv.choose(5, 2) # choose 2 out of 5 people with equal probability (without repeats)
+    '''
+    return np.random.choice(max_n, n, replace=False)
+
+
+@nb.njit() # Numba hugely increases performance
+def choose_r(max_n, n):
+    '''
+    Choose a subset of items (e.g., people), with replacement.
+
+    Args:
+        max_n (int): the total number of items
+        n (int): the number of items to choose
+
+    **Example**::
+
+        choices = cv.choose_r(5, 10) # choose 10 out of 5 people with equal probability (with repeats)
+    '''
+    return np.random.choice(max_n, n, replace=True)
+

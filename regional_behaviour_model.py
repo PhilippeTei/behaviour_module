@@ -1,7 +1,7 @@
 from . import behaviour_model as bm
 import numpy as np
 import sciris as sc
-import infection.utils as cvu
+from . import utils as cvu
 import random
 
 class RegionalBehaviourModel(bm.BehaviourModel):
