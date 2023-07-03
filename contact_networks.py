@@ -9,7 +9,10 @@ import networkx as nx
 from . import data_distributions as spdata
 from . import schools as spsch
 from .config import logger as log, checkmem
-from . import utils as cvu
+try: 
+    from infection import utils as cvu
+except: 
+    from pathosim import utils as cvu
 
 def make_all_contacts(pop, structs, pars):
     """

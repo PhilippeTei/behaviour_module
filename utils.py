@@ -68,8 +68,7 @@ def rescale_2d_pmf(row_bracs, col_bracs, pmf, targ_row_bracs, targ_col_bracs):
             A_I_joint_scaled[n_arr_age_start:n_arr_age_end, n_arr_inc_start:n_arr_inc_end] = cur_val / area
     return A_I_joint_scaled/np.sum(A_I_joint_scaled, axis=(0,1))
 
-
-@nb.njit() # Numba hugely increases performance
+ 
 def n_poisson(rate, n):
     '''
     An array of Poisson trials.
@@ -108,8 +107,7 @@ def n_neg_binomial(rate, dispersion, n, step=1): # Numba not used due to incompa
 
 
 
-
-@nb.njit() # Numba hugely increases performance
+ 
 def choose(max_n, n):
     '''
     Choose a subset of items (e.g., people) without replacement.
@@ -124,8 +122,7 @@ def choose(max_n, n):
     '''
     return np.random.choice(max_n, n, replace=False)
 
-
-@nb.njit() # Numba hugely increases performance
+ 
 def choose_r(max_n, n):
     '''
     Choose a subset of items (e.g., people), with replacement.
